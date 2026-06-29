@@ -110,7 +110,7 @@ app.get("/api/catalog", (req, res) => {
 // -----------------------------------------------------------------
 // Construção do system prompt — injeta persona + memória + skills.
 // -----------------------------------------------------------------
-function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, context = null, sources = null, web = false } = {}) {
+function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, context = null, sources = null, web = false, autoApply = false } = {}) {
   const recalled = memory.recall(lastUserText, 6);
   const memoryBlock = recalled.length
     ? recalled
@@ -179,9 +179,15 @@ function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, con
       '- Listar arquivos: <listfiles/>',
       '- Ler um arquivo: <readfile path="caminho/relativo.ext"/>',
       '- Criar/editar um arquivo: <writefile path="caminho/relativo.ext">CONTEÚDO COMPLETO DO ARQUIVO</writefile>',
-      '- Propor um comando de terminal: <runcommand>comando aqui</runcommand>',
-      "Regras: use SEMPRE caminhos relativos à raiz do projeto. Ao editar, escreva o arquivo inteiro (não trechos). Leia antes de editar quando precisar do conteúdo atual. Leituras/listagens voltam para você continuar. IMPORTANTE: escritas e comandos NÃO são aplicados automaticamente — o usuário revisa o diff e aprova. Então proponha a escrita/comando e dê uma resposta final explicando o que fez e por quê (não fique esperando o resultado de um comando não aprovado).",
-      ...(project.git ? ["", `### Git: ${project.git}`, "Para versionar, proponha <runcommand>git ...</runcommand> (o usuário aprova). O commit também pode ser feito pelo painel Git."] : []),
+      '- Rodar um comando de terminal: <runcommand>comando aqui</runcommand>',
+      "Regras de caminho: use SEMPRE caminhos relativos à raiz do projeto. Leituras/listagens voltam para você continuar a tarefa.",
+      "",
+      "## EDIÇÃO CIRÚRGICA (regra crítica para não destruir arquivos)",
+      "O <writefile> grava o ARQUIVO INTEIRO. Por isso, para mudar UM detalhe você DEVE: (1) LER o arquivo atual com <readfile> primeiro; (2) reescrevê-lo IDÊNTICO, alterando APENAS o trecho pedido. PRESERVE todo o resto exatamente como está — não 'melhore', não reescreva, não reformate, não troque o estilo/framework, não apague funções/CSS/HTML que não têm relação com o pedido. Se o usuário pede uma mudança pequena, a saída deve diferir do original em pouquíssimas linhas. NUNCA recrie um arquivo do zero por causa de uma alteração pontual. Edite só um arquivo por vez quando possível.",
+      autoApply
+        ? "Modo AUTÔNOMO: suas escritas e comandos são aplicados/executados na hora, sem aprovação. Aja com cuidado — releia o arquivo antes de sobrescrever. Após escrever/rodar, você recebe o resultado para verificar e continuar até concluir; ao final, explique o que fez."
+        : "Modo REVISÃO: escritas e comandos NÃO são aplicados automaticamente — o usuário revisa o diff e aprova. Proponha a escrita/comando e dê uma resposta final explicando o que fez e por quê.",
+      ...(project.git ? ["", `### Git: ${project.git}`, "Para versionar, use <runcommand>git ...</runcommand>. O commit também pode ser feito pelo painel Git."] : []),
       "",
       "### Árvore de arquivos do projeto",
       (project.files || []).join("\n").slice(0, 6000) || "(vazia)",
@@ -487,7 +493,7 @@ app.post("/api/chat", async (req, res) => {
   const MAX_ITERS = (project && autoApply) ? 12 : (project || web ? 5 : 2);
 
   for (let iter = 0; iter < MAX_ITERS; iter++) {
-    const systemPrompt = buildSystemPrompt(lastUserText, { skillBodies: loadedSkills, project, context: contextEnabled ? convContext : null, sources, web });
+    const systemPrompt = buildSystemPrompt(lastUserText, { skillBodies: loadedSkills, project, context: contextEnabled ? convContext : null, sources, web, autoApply });
     run = await runChain(chain, working, systemPrompt);
     if (!run.ok) {
       return res.status(502).json({ ok: false, error: "Todos os modelos falharam.", attempts: run.attempts, chain });
