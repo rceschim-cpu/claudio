@@ -1001,15 +1001,16 @@ async function onSend(e) {
   clearReplyQuote();
   const hasImages = userMsg.images && userMsg.images.length;
 
-  // A IA DECIDE (sem botões): analisa o prompt e resolve se gera imagem ou
-  // busca na web. Só no modo auto, sem projeto e sem imagem anexada.
+  // A IA DECIDE (sem botões): analisa o prompt e resolve se busca na web e/ou
+  // gera imagem. Web vale inclusive DENTRO de projetos (pesquisar + escrever).
+  // Geração de imagem só fora de projeto (dentro, o foco é editar arquivos).
   let forceImage = false, web = false;
-  if (mode === "auto" && !projectId && !hasImages && text) {
+  if (mode === "auto" && !hasImages && text) {
     try {
       setStatus("amber", "analisando…");
       const d = await api("/api/decide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-      forceImage = Boolean(d.image);
       web = Boolean(d.web);
+      forceImage = !projectId && Boolean(d.image);
     } catch {}
   }
 

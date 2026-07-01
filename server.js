@@ -670,8 +670,14 @@ app.post("/api/chat", async (req, res) => {
   // memórias + arquivos office + limpeza final
   const memProc = memory.processModelOutput(rawText);
   const officeProc = await processOfficeTags(memProc.cleanText, lastUserText);
-  const finalText = officeProc.cleanText;
   const officeFiles = officeProc.files;
+  // guarda contra bolha vazia: se não sobrou texto, mostra um resumo do que houve
+  let finalText = officeProc.cleanText;
+  if (!finalText) {
+    if (fileOps.length) finalText = "✓ Concluído. " + fileOps.map((o) => o.command ? `rodei: ${o.command}` : `${o.action}: ${o.path}`).join("; ") + ".";
+    else if (officeFiles.length) finalText = "✓ Arquivo gerado (veja o download).";
+    else finalText = "(sem resposta em texto — tente reformular o pedido.)";
+  }
 
   // se a memória do chat está ligada e o modelo NÃO emitiu <context>,
   // gera as notas via passada de resumo (garantia independente do modelo)
@@ -813,7 +819,8 @@ app.post("/api/chat/stream", async (req, res) => {
     const memProc = memory.processModelOutput(raw);
     const skillProc = skills.detectInvocations(memProc.cleanText);
     const officeProc = await processOfficeTags(skillProc.cleanText, lastUserText);
-    const finalText = officeProc.cleanText;
+    let finalText = officeProc.cleanText;
+    if (!finalText) finalText = officeProc.files.length ? "✓ Arquivo gerado (veja o download)." : "(sem resposta em texto — tente reformular.)";
 
     if (contextEnabled && !updatedContext) {
       try { const notes = await summarizeContext(chain, convContext, lastUserText, finalText); if (notes) { convContext = notes; updatedContext = true; } } catch {}
