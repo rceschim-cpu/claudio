@@ -50,8 +50,34 @@ const FILES_DIR = path.join(__dirname, "data", "files");
 fsmod.mkdirSync(FILES_DIR, { recursive: true });
 app.use("/files", express.static(FILES_DIR));
 
-// Extrai <xlsx>/<docx> da resposta e gera os arquivos reais (download).
-async function processOfficeTags(text) {
+// Converte a PRIMEIRA tabela markdown (ou um bloco ```csv) do texto em CSV.
+// Devolve { csv, block } (o trecho original, para poder removê-lo do chat) ou null.
+function extractTableAsCsv(text) {
+  // 1) bloco ```csv explícito
+  const fence = text.match(/```csv\s*\n([\s\S]*?)```/i);
+  if (fence) return { csv: fence[1].trim(), block: fence[0] };
+
+  // 2) primeira tabela markdown (linhas consecutivas com "|")
+  const lines = text.split("\n");
+  let start = -1, end = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*\|.*\|\s*$/.test(lines[i])) { if (start === -1) start = i; end = i; }
+    else if (start !== -1) break;
+  }
+  if (start === -1 || end - start < 1) return null; // precisa de cabeçalho + ao menos 1 linha
+  const tableLines = lines.slice(start, end + 1);
+  const rows = tableLines
+    .map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()))
+    .filter((cells) => !cells.every((c) => c === "" || /^:?-{2,}:?$/.test(c))); // pula separador ---
+  if (rows.length < 2) return null;
+  const esc = (c) => (/[",\n;]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c);
+  const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+  return { csv, block: tableLines.join("\n") };
+}
+
+// Extrai <xlsx>/<docx>/<pptx> e, como FALLBACK, gera .xlsx a partir de uma
+// tabela/CSV no chat quando o usuário pediu planilha mas o modelo não emitiu a tag.
+async function processOfficeTags(text, userText = "") {
   const files = [];
   let clean = text;
   const tasks = [];
@@ -78,6 +104,25 @@ async function processOfficeTags(text) {
       files.push({ name: `${base}.${t.kind}`, url: `/files/${file}`, kind: t.kind });
     } catch (e) { /* ignora arquivo malformado */ }
   }
+
+  // FALLBACK: pediu planilha e o modelo NÃO emitiu <xlsx>, mas mandou a
+  // tabela/CSV no chat → gera o .xlsx automaticamente a partir dela.
+  const querPlanilha = /\b(planilha|xlsx|excel|csv|tabela)\b/i.test(userText);
+  if (querPlanilha && !files.some((f) => f.kind === "xlsx")) {
+    const t = extractTableAsCsv(clean);
+    if (t && t.csv.split("\n").length >= 2) {
+      const base = "planilha";
+      const file = `${base}-${Date.now().toString(36)}.xlsx`;
+      const out = path.join(FILES_DIR, file);
+      try {
+        await office.csvToXlsx(t.csv, out, { sheetName: base });
+        files.push({ name: `${base}.xlsx`, url: `/files/${file}`, kind: "xlsx", auto: true });
+        // remove a tabela crua do chat e deixa um aviso curto
+        clean = clean.replace(t.block, "📊 Planilha gerada a partir dos dados abaixo (baixe o arquivo).").trim();
+      } catch (e) { /* se falhar, deixa o texto como está */ }
+    }
+  }
+
   return { cleanText: clean.trim(), files };
 }
 
@@ -597,7 +642,7 @@ app.post("/api/chat", async (req, res) => {
 
   // memórias + arquivos office + limpeza final
   const memProc = memory.processModelOutput(rawText);
-  const officeProc = await processOfficeTags(memProc.cleanText);
+  const officeProc = await processOfficeTags(memProc.cleanText, lastUserText);
   const finalText = officeProc.cleanText;
   const officeFiles = officeProc.files;
 
@@ -740,7 +785,7 @@ app.post("/api/chat/stream", async (req, res) => {
     raw = raw.replace(/<context>([\s\S]*?)<\/context>/i, (_m, b) => { if (contextEnabled) { convContext = b.trim(); updatedContext = true; } return ""; }).trim();
     const memProc = memory.processModelOutput(raw);
     const skillProc = skills.detectInvocations(memProc.cleanText);
-    const officeProc = await processOfficeTags(skillProc.cleanText);
+    const officeProc = await processOfficeTags(skillProc.cleanText, lastUserText);
     const finalText = officeProc.cleanText;
 
     if (contextEnabled && !updatedContext) {
