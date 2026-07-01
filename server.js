@@ -165,6 +165,7 @@ function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, con
 
   const parts = [
     "Você é um cowork de IA local, direto, honesto e prático. Responde em português do Brasil por padrão.",
+    "Você NÃO é um chatbot isolado — é um cowork com FERRAMENTAS locais (busca web, arquivos, geração de planilha/doc/imagem). Portanto: NUNCA diga que 'não tem acesso à internet', que 'fui treinado até 2023' ou frases de limitação de modelo — isso confunde o usuário e é falso neste contexto. Se você recebeu instruções de <websearch> nesta mensagem, use a web para dados atuais. Se NÃO recebeu e o pedido exige dados atuais/online, diga que pode pesquisar (o usuário só precisa continuar/confirmar) — não recuse alegando limitação. Se uma busca não retornou os dados, diga objetivamente 'não consegui extrair os números dessas páginas' e proponha outra fonte, sem discurso de limitação.",
     "",
     "## Como entregar arquivos (REGRA IMPORTANTE)",
   ];
@@ -362,19 +363,22 @@ async function runChain(chain, messages, systemPrompt) {
 // ANÁLISE DE INTENÇÃO — a própria IA decide (sem botões) se o pedido precisa
 // gerar imagem ou buscar na web. Heurística rápida cobre os casos óbvios; nos
 // ambíguos, um modelo rápido classifica devolvendo JSON {web, image}.
-async function decideIntent(userText, chain) {
+async function decideIntent(userText, chain, prev = "") {
   const t = String(userText || "").trim().toLowerCase();
-  // fast-path óbvios (sem chamar modelo)
-  if (t.length < 8) return { web: false, image: false };
+  // fast-path óbvios (sem chamar modelo). Se há contexto anterior (follow-up
+  // tipo "e aí?"), NÃO corta — o pedido pode ser continuação de tarefa web/imagem.
+  if (t.length < 8 && !prev) return { web: false, image: false };
   if (router.classify(userText) === "image_gen") return { web: false, image: true };
 
   const sys =
-    "Você é um classificador de intenção. Analise o PEDIDO do usuário e responda APENAS com um JSON válido, sem nenhum texto extra, no formato {\"web\": true|false, \"image\": true|false}.\n" +
-    "- web=true quando responder bem EXIGE informação atual/externa da internet: notícias, cotações, preços, clima/tempo, resultados, agenda, dados factuais que mudam com o tempo ou específicos que você não teria com confiança (ex.: população de cidades, quem ganhou X, quando estreia Y), ou quando o usuário pede explicitamente para pesquisar/buscar.\n" +
+    "Você é um classificador de intenção. Analise o PEDIDO ATUAL (usando o CONTEXTO como apoio) e responda APENAS com um JSON válido, sem nenhum texto extra, no formato {\"web\": true|false, \"image\": true|false}.\n" +
+    "- web=true quando responder bem EXIGE informação atual/externa da internet: notícias, cotações, preços, clima/tempo, resultados, agenda, dados factuais que mudam com o tempo ou específicos que você não teria com confiança (ex.: população de cidades, quem ganhou X, quando estreia Y), ou quando o usuário pede explicitamente para pesquisar/buscar/coletar online.\n" +
     "- image=true quando o usuário quer GERAR/criar/desenhar uma imagem, foto, logo, ilustração, ícone como resultado.\n" +
+    "- CONTINUAÇÃO: se o pedido atual for curto/vago (ex.: 'e aí?', 'continua', 'sim', 'e então') e o CONTEXTO for uma tarefa que exigia web ou imagem, mantenha essa decisão (web/image=true).\n" +
     "- Nos demais casos (conversa, código, explicação, texto que você já sabe), ambos false.";
+  const userMsg = (prev ? "CONTEXTO (mensagens anteriores): " + String(prev).slice(0, 500) + "\n\n" : "") + "PEDIDO ATUAL: " + userText;
   try {
-    const r = await runChain(chain, [{ role: "user", content: "PEDIDO: " + userText }], sys);
+    const r = await runChain(chain, [{ role: "user", content: userMsg }], sys);
     if (r.ok && r.result.text) {
       const m = r.result.text.match(/\{[\s\S]*?\}/);
       if (m) {
@@ -1069,9 +1073,10 @@ app.get("/api/health", (req, res) => res.json({ health: router.healthSnapshot() 
 // -----------------------------------------------------------------
 app.post("/api/decide", async (req, res) => {
   const text = String((req.body || {}).text || "");
+  const prev = String((req.body || {}).prev || "");
   try {
     const picked = router.pickAutoChain(effectiveCatalog(), providers.hasKey, text, {});
-    const intent = await decideIntent(text, picked.chain);
+    const intent = await decideIntent(text, picked.chain, prev);
     res.json({ ok: true, ...intent });
   } catch (err) {
     res.json({ ok: false, web: false, image: false, error: String(err.message || err) });

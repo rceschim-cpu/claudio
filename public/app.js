@@ -1008,7 +1008,9 @@ async function onSend(e) {
   if (mode === "auto" && !hasImages && text) {
     try {
       setStatus("amber", "analisando…");
-      const d = await api("/api/decide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      // manda também o pedido anterior do usuário (contexto p/ follow-ups tipo "e aí?")
+      const prevUser = [...conversation].slice(0, -1).reverse().find(m => m.role === "user");
+      const d = await api("/api/decide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, prev: prevUser ? String(prevUser.content).slice(0, 500) : "" }) });
       web = Boolean(d.web);
       forceImage = !projectId && Boolean(d.image);
     } catch {}
