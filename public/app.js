@@ -9,8 +9,6 @@ let conversationId = null;
 let artifacts = [];             // [{filename, actualFilename, lang, code}]
 let activeArtifact = 0;
 let projectId = null;           // pasta conectada ativa
-let forceImage = false;         // próxima mensagem gera imagem
-let webEnabled = false;          // próxima mensagem pode pesquisar na web
 let autoApply = true;           // aplicar escrita/comandos direto, sem pedir aprovação (padrão)
 let suppressAutoOpen = false;   // evita abrir artefatos ao recarregar histórico
 let attachedImages = [];        // holds attached image base64
@@ -93,26 +91,7 @@ function wireUI() {
   $("btn-attach").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", onAttach);
 
-  // imagem — toggle explícito: só gera imagem quando ISTO está ligado
-  $("btn-image").addEventListener("click", () => {
-    forceImage = !forceImage;
-    $("btn-image").classList.toggle("has-file", forceImage);
-    $("btn-image").title = forceImage
-      ? "MODO IMAGEM LIGADO — a próxima mensagem vai gerar uma imagem. Clique para desligar."
-      : "Gerar imagem: clique para que a próxima mensagem crie uma imagem.";
-    $("chat-input").placeholder = forceImage
-      ? "🎨 MODO IMAGEM — descreva a imagem que quer gerar…"
-      : "Fale com seu cowork…  (Enter envia · Shift+Enter quebra linha)";
-    $("chat-input").focus();
-  });
-
-  // web — toggle: a próxima mensagem pode pesquisar na web
-  $("btn-web").addEventListener("click", () => {
-    webEnabled = !webEnabled;
-    $("btn-web").classList.toggle("has-file", webEnabled);
-    $("btn-web").title = webEnabled ? "WEB LIGADA — vou pesquisar na web. Clique para desligar." : "Pesquisar na web nesta mensagem.";
-    $("chat-input").focus();
-  });
+  // (Imagem e web agora são decididas pela IA a partir do prompt — sem botões.)
 
   // projeto
   $("btn-connect-folder").addEventListener("click", connectFolder);
@@ -1019,6 +998,21 @@ async function onSend(e) {
   conversation.push(userMsg);
   renderMessages();
   
+  clearReplyQuote();
+  const hasImages = userMsg.images && userMsg.images.length;
+
+  // A IA DECIDE (sem botões): analisa o prompt e resolve se gera imagem ou
+  // busca na web. Só no modo auto, sem projeto e sem imagem anexada.
+  let forceImage = false, web = false;
+  if (mode === "auto" && !projectId && !hasImages && text) {
+    try {
+      setStatus("amber", "analisando…");
+      const d = await api("/api/decide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      forceImage = Boolean(d.image);
+      web = Boolean(d.web);
+    } catch {}
+  }
+
   const payload = {
     conversationId,
     messages: conversation,
@@ -1027,18 +1021,13 @@ async function onSend(e) {
     projectId,
     forceImage,
     autoApply,
-    web: webEnabled
+    web
   };
-  
-  forceImage = false; $("btn-image").classList.remove("has-file");
-  webEnabled = false; $("btn-web").classList.remove("has-file");
-  $("chat-input").placeholder = "Fale com seu cowork…  (Enter envia · Shift+Enter quebra linha)";
-  clearReplyQuote();
 
   // Streaming no caso comum; projeto/imagem/web usam o caminho bloqueante (loop agêntico).
-  const useStream = !projectId && !forceImage && !webEnabled && (!userMsg.images || !userMsg.images.length);
+  const useStream = !projectId && !forceImage && !web && !hasImages;
   try {
-    setStatus("amber", "pensando…");
+    setStatus("amber", forceImage ? "gerando imagem…" : web ? "pesquisando…" : "pensando…");
     if (useStream) await sendStreaming(payload);
     else await sendBlocking(payload);
   } catch (err) {

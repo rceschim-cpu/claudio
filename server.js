@@ -359,6 +359,33 @@ async function runChain(chain, messages, systemPrompt) {
   return { ok: false, attempts };
 }
 
+// ANÁLISE DE INTENÇÃO — a própria IA decide (sem botões) se o pedido precisa
+// gerar imagem ou buscar na web. Heurística rápida cobre os casos óbvios; nos
+// ambíguos, um modelo rápido classifica devolvendo JSON {web, image}.
+async function decideIntent(userText, chain) {
+  const t = String(userText || "").trim().toLowerCase();
+  // fast-path óbvios (sem chamar modelo)
+  if (t.length < 8) return { web: false, image: false };
+  if (router.classify(userText) === "image_gen") return { web: false, image: true };
+
+  const sys =
+    "Você é um classificador de intenção. Analise o PEDIDO do usuário e responda APENAS com um JSON válido, sem nenhum texto extra, no formato {\"web\": true|false, \"image\": true|false}.\n" +
+    "- web=true quando responder bem EXIGE informação atual/externa da internet: notícias, cotações, preços, clima/tempo, resultados, agenda, dados factuais que mudam com o tempo ou específicos que você não teria com confiança (ex.: população de cidades, quem ganhou X, quando estreia Y), ou quando o usuário pede explicitamente para pesquisar/buscar.\n" +
+    "- image=true quando o usuário quer GERAR/criar/desenhar uma imagem, foto, logo, ilustração, ícone como resultado.\n" +
+    "- Nos demais casos (conversa, código, explicação, texto que você já sabe), ambos false.";
+  try {
+    const r = await runChain(chain, [{ role: "user", content: "PEDIDO: " + userText }], sys);
+    if (r.ok && r.result.text) {
+      const m = r.result.text.match(/\{[\s\S]*?\}/);
+      if (m) {
+        const j = JSON.parse(m[0]);
+        return { web: Boolean(j.web), image: Boolean(j.image) };
+      }
+    }
+  } catch {}
+  return { web: false, image: false };
+}
+
 // Atualiza as notas de memória do chat de forma INDEPENDENTE do modelo:
 // uma passada curta de resumo (modelos grátis nem sempre emitem <context>).
 async function summarizeContext(chain, prevContext, userText, assistantText) {
@@ -1028,6 +1055,21 @@ app.delete("/api/conversations/:id", (req, res) => {
 // Saúde dos provedores
 // -----------------------------------------------------------------
 app.get("/api/health", (req, res) => res.json({ health: router.healthSnapshot() }));
+
+// -----------------------------------------------------------------
+// POST /api/decide — a IA analisa o prompt e decide {web, image}.
+// Usado pelo frontend para rotear sem botões manuais.
+// -----------------------------------------------------------------
+app.post("/api/decide", async (req, res) => {
+  const text = String((req.body || {}).text || "");
+  try {
+    const picked = router.pickAutoChain(effectiveCatalog(), providers.hasKey, text, {});
+    const intent = await decideIntent(text, picked.chain);
+    res.json({ ok: true, ...intent });
+  } catch (err) {
+    res.json({ ok: false, web: false, image: false, error: String(err.message || err) });
+  }
+});
 
 // -----------------------------------------------------------------
 // Descoberta de modelos grátis
