@@ -40,14 +40,26 @@ async function init() {
 // MODO (auto / manual)
 // =================================================================
 function wireUI() {
-  $("mode-auto").addEventListener("click", () => setMode("auto"));
-  $("mode-manual").addEventListener("click", () => setMode("manual"));
+  // seletor de modelo desta conversa (janelinha)
+  $("model-picker-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleModelPop(); });
+  $("model-pop-close").addEventListener("click", () => toggleModelPop(false));
+  $("model-pop").addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", () => toggleModelPop(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleModelPop(false); });
+
   $("btn-new-chat").addEventListener("click", newChat);
   $("btn-memory").addEventListener("click", openMemoryModal);
   $("btn-skills").addEventListener("click", openSkillsModal);
   $("btn-models").addEventListener("click", openModelsModal);
   $("modal-close").addEventListener("click", closeModal);
-  $("modal-backdrop").addEventListener("click", (e) => { if (e.target.id === "modal-backdrop") closeModal(); });
+  // Fecha só quando o clique COMEÇA e TERMINA no fundo. Assim, selecionar
+  // texto dentro da janela e soltar o mouse fora não fecha mais.
+  let backdropPressed = false;
+  $("modal-backdrop").addEventListener("mousedown", (e) => { backdropPressed = e.target.id === "modal-backdrop"; });
+  $("modal-backdrop").addEventListener("click", (e) => {
+    if (backdropPressed && e.target.id === "modal-backdrop") closeModal();
+    backdropPressed = false;
+  });
   $("btn-close-artifacts").addEventListener("click", () => document.querySelector(".app").classList.remove("artifacts-open"));
 
   // input
@@ -682,33 +694,30 @@ async function loadConversation(id) {
   }
 }
 
+// Nova conversa = reset LOCAL. A conversa só é criada no servidor quando a
+// primeira mensagem é enviada (evita conversas vazias poluindo o histórico).
 async function newChat() {
-  try {
-    setStatus("amber", "iniciando chat…");
-    const r = await api("/api/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contextMemory: false })
-    });
-    setStatus("green", "ok");
-    if (r.ok && r.conversation) {
-      conversationId = r.conversation.id;
-      conversation = [];
-      artifacts = [];
-      activeArtifact = 0;
-      
-      $("status-dot").className = "dot dot-green";
-      $("status-active-label").textContent = "pronto";
-      $("status-routing").innerHTML = "";
-      
-      renderMessages();
-      renderArtifacts();
-      await loadConversations();
-    }
-  } catch (err) {
-    setStatus("red", "erro");
-    alert("Erro ao criar nova conversa: " + err.message);
-  }
+  conversationId = null;
+  conversation = [];
+  artifacts = [];
+  activeArtifact = 0;
+  attachedImages = [];
+  clearReplyQuote();
+
+  // limpa anexos e painel de artefatos
+  const prev = $("file-preview");
+  if (prev) { prev.innerHTML = ""; prev.classList.add("hidden"); }
+  $("btn-attach")?.classList.remove("has-file");
+  document.querySelector(".app")?.classList.remove("artifacts-open");
+
+  $("status-routing").innerHTML = "";
+  setStatus("green", "pronto");
+  reflectModelPicker();
+
+  renderMessages();
+  renderArtifacts();
+  await loadConversations();
+  $("chat-input")?.focus();
 }
 
 // =================================================================
@@ -883,76 +892,90 @@ function onAttach(e) {
 }
 
 // =================================================================
-// ROTEAMENTO MANUAL
+// ESCOLHA DE MODELO — por conversa, numa janelinha na barra do chat.
+// "Automático" é sempre o padrão; escolher um modelo fixa-o nesta conversa.
 // =================================================================
-function setMode(newMode) {
-  mode = newMode;
-  $("mode-auto").classList.toggle("active", mode === "auto");
-  $("mode-manual").classList.toggle("active", mode === "manual");
-  $("auto-info").classList.toggle("hidden", mode !== "auto");
-  $("manual-info").classList.toggle("hidden", mode !== "manual");
-  
-  if (mode === "manual") {
-    renderManualBuilder();
-  }
+function setMode(newMode) { mode = newMode; }   // compat.
+
+// Rótulo do botão: "Automático" ou o modelo escolhido.
+function reflectModelPicker() {
+  const label = $("status-active-label");
+  if (!label) return;
+  if (mode === "manual" && manualChain[0]) label.textContent = manualChain[0].name;
+  else label.textContent = "Automático";
+  $("model-picker-btn")?.classList.toggle("picked", mode === "manual" && Boolean(manualChain[0]));
 }
 
-function renderManualBuilder() {
-  const container = $("manual-builder");
-  if (!container) return;
-  
-  let html = "";
-  for (let i = 0; i < 3; i++) {
-    const label = i === 0 ? "Principal" : `Fallback ${i}`;
-    html += `
-      <div class="manual-slot">
-        <div class="manual-slot-label">${label}</div>
-        <select data-slot="${i}">
-          <option value="">— nenhum —</option>
-    `;
-    
-    for (const [providerId, provider] of Object.entries(CATALOG)) {
-      if (!provider.hasKey) continue;
-      const freeModels = provider.models.filter(m => m.input === 0 && m.output === 0);
-      if (freeModels.length === 0) continue;
-      
-      html += `<optgroup label="${escapeHtml(provider.label)}">`;
-      for (const model of freeModels) {
-        const selected = manualChain[i] && manualChain[i].provider === providerId && manualChain[i].modelId === model.id ? "selected" : "";
-        html += `<option value="${providerId}:${model.id}" ${selected}>${escapeHtml(model.name)}</option>`;
-      }
-      html += `</optgroup>`;
-    }
-    
-    html += `
-        </select>
-      </div>
-    `;
-  }
-  
-  container.innerHTML = html;
-  
-  container.querySelectorAll("select").forEach(select => {
-    select.addEventListener("change", (e) => {
-      const slot = parseInt(e.target.dataset.slot);
-      const val = e.target.value;
-      if (!val) {
-        manualChain[slot] = null;
-      } else {
-        const [provider, modelId] = val.split(":");
-        const prov = CATALOG[provider];
-        const m = prov.models.find(x => x.id === modelId);
-        manualChain[slot] = {
-          provider,
-          modelId,
-          name: m.name,
-          color: prov.color,
-          providerLabel: prov.label
-        };
-      }
-    });
-  });
+function toggleModelPop(force) {
+  const pop = $("model-pop");
+  if (!pop) return;
+  const show = force !== undefined ? force : pop.classList.contains("hidden");
+  if (show) { renderModelPop(); pop.classList.remove("hidden"); }
+  else pop.classList.add("hidden");
 }
+
+// Agrupa por FONTE (provedor) e ordena do mais recente para o mais antigo.
+function renderModelPop() {
+  const body = $("model-pop-body");
+  if (!body) return;
+  const isAuto = mode !== "manual" || !manualChain[0];
+
+  let html = `
+    <button type="button" class="model-opt model-opt-auto ${isAuto ? "on" : ""}" data-auto="1">
+      <div class="model-opt-main">
+        <div class="model-opt-name">Automático</div>
+        <div class="model-opt-sub">O Prisma escolhe o melhor modelo grátis por tarefa e evita provedores fora do ar</div>
+      </div>
+      ${isAuto ? '<span class="model-check">✓</span>' : ""}
+    </button>`;
+
+  // provedores com chave e com modelos grátis
+  const sources = Object.entries(CATALOG)
+    .filter(([, p]) => p.hasKey && p.models.some(m => m.input === 0 && m.output === 0));
+
+  for (const [pid, prov] of sources) {
+    const models = prov.models
+      .filter(m => m.input === 0 && m.output === 0)
+      .sort((a, b) => String(b.released || "").localeCompare(String(a.released || "")));   // mais recente primeiro
+    if (!models.length) continue;
+
+    html += `<div class="model-source">
+      <span class="model-source-dot" style="background:${prov.color || "var(--accent)"}"></span>
+      ${escapeHtml(prov.label)}<span class="model-source-count">${models.length}</span>
+    </div>`;
+
+    for (const m of models) {
+      const on = mode === "manual" && manualChain[0]?.provider === pid && manualChain[0]?.modelId === m.id;
+      const year = String(m.released || "").slice(0, 7);
+      html += `
+        <button type="button" class="model-opt ${on ? "on" : ""}" data-p="${pid}" data-m="${escapeHtml(m.id)}">
+          <div class="model-opt-main">
+            <div class="model-opt-name">${escapeHtml(m.name)}</div>
+            <div class="model-opt-sub">${year ? year : ""}${m.context ? ` · ${escapeHtml(m.context)}` : ""}</div>
+          </div>
+          ${on ? '<span class="model-check">✓</span>' : ""}
+        </button>`;
+    }
+  }
+
+  if (!sources.length) html += '<div class="muted" style="padding:10px">Nenhum modelo grátis disponível. Configure chaves no .env.</div>';
+  body.innerHTML = html;
+
+  body.querySelectorAll("[data-auto]").forEach(b => b.addEventListener("click", () => {
+    mode = "auto"; manualChain = [null, null, null];
+    reflectModelPicker(); toggleModelPop(false);
+  }));
+  body.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => {
+    const pid = b.dataset.p, mid = b.dataset.m;
+    const prov = CATALOG[pid];
+    const m = prov.models.find(x => x.id === mid);
+    mode = "manual";
+    manualChain = [{ provider: pid, modelId: mid, name: m.name, color: prov.color, providerLabel: prov.label }, null, null];
+    reflectModelPicker(); toggleModelPop(false);
+  }));
+}
+
+function renderManualBuilder() { reflectModelPicker(); }   // compat. com o init
 
 function renderStatusRouting(chain, activeIndex = 0, attempts = []) {
   const el = $("status-routing");

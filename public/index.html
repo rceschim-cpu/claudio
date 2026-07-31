@@ -24,25 +24,9 @@
       <span class="dot dot-green" id="brand-dot" title="status dos provedores"></span>
     </div>
 
-    <button id="btn-new-chat" class="btn-primary">+ Nova conversa</button>
+    <button id="btn-new-chat" class="btn-new">Nova conversa</button>
 
-    <!-- modo de roteamento -->
-    <div class="panel">
-      <div class="panel-title">Roteamento</div>
-      <div class="mode-toggle">
-        <button class="mode-btn active" data-mode="auto" id="mode-auto">⚡ Autônomo</button>
-        <button class="mode-btn" data-mode="manual" id="mode-manual">✋ Manual</button>
-      </div>
-      <div id="auto-info" class="mode-info">
-        O cowork escolhe o melhor modelo grátis por tarefa e evita provedores fora do ar.
-      </div>
-      <div id="manual-info" class="mode-info hidden">
-        <div class="manual-hint">Monte sua cadeia (principal → fallbacks):</div>
-        <div id="manual-builder"></div>
-      </div>
-    </div>
-
-    <!-- O painel de projeto foi movido para a barra superior no centro do chat -->
+    <!-- O roteamento agora vive em cada conversa (seletor na barra do chat) -->
 
     <!-- histórico -->
     <div class="panel panel-grow">
@@ -67,10 +51,22 @@
   <main class="chat">
     <header class="chat-statusbar">
       <div class="status-left">
-        <span class="dot dot-green" id="status-dot"></span>
-        <span id="status-active-label">pronto</span>
+        <button type="button" id="model-picker-btn" class="model-picker-btn" title="Escolher modelo desta conversa">
+          <span class="dot dot-green" id="status-dot"></span>
+          <span id="status-active-label">Automático</span>
+          <span class="chev">⌄</span>
+        </button>
       </div>
       <div class="status-right" id="status-routing"></div>
+
+      <!-- janelinha de escolha de modelo (por conversa) -->
+      <div class="model-pop hidden" id="model-pop">
+        <div class="model-pop-head">
+          <span>Modelo desta conversa</span>
+          <button type="button" class="btn-icon" id="model-pop-close">✕</button>
+        </div>
+        <div class="model-pop-body" id="model-pop-body"></div>
+      </div>
     </header>
 
     <div class="project-topbar" id="project-topbar">
@@ -99,7 +95,7 @@
 
     <form id="chat-form" class="chat-input-bar">
       <input type="file" id="file-input" accept="image/*,.txt,.md,.js,.ts,.py,.json,.yaml,.yml,.html,.css,.csv,.xml,.sh,.bash,.sql,.jsx,.tsx,.java,.c,.cpp,.h,.rs,.go,.rb,.php" hidden />
-      <button type="button" id="btn-attach" class="btn-attach" title="Anexar arquivo ou imagem (vision)">📎</button>
+      <button type="button" id="btn-attach" class="btn-attach" title="Anexar arquivo ou imagem">+</button>
       <div class="chat-input-wrap">
         <div id="reply-quote" class="reply-quote hidden"></div>
         <div id="file-preview" class="file-preview hidden"></div>
