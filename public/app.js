@@ -10,6 +10,8 @@ let artifacts = [];             // [{filename, actualFilename, lang, code}]
 let activeArtifact = 0;
 let projectId = null;           // pasta conectada ativa
 let autoApply = true;           // aplicar escrita/comandos direto, sem pedir aprovação (padrão)
+let agentId = null;             // agente ativo (persona + conhecimento + conectores)
+let editingKnowledge = [];      // blocos de conhecimento no editor de agente
 let suppressAutoOpen = false;   // evita abrir artefatos ao recarregar histórico
 let attachedImages = [];        // holds attached image base64
 let artifactViewMode = 'code';   // 'code' or 'preview'
@@ -28,6 +30,7 @@ async function init() {
   CATALOG = await api("/api/catalog");
   renderManualBuilder();
   await loadProjects();
+  await loadAgents();
   await loadConversations();
   wireUI();
   refreshStatusHealth();
@@ -99,6 +102,9 @@ function wireUI() {
   $("btn-analyze").addEventListener("click", analyzeFolder);
   $("btn-index").addEventListener("click", indexFolder);
   $("btn-git").addEventListener("click", openGitModal);
+  $("btn-agents").addEventListener("click", openAgentsModal);
+  $("btn-roi").addEventListener("click", openRoiModal);
+  $("agent-select").addEventListener("change", (e) => { agentId = e.target.value || null; reflectAgent(); });
   $("auto-apply").addEventListener("change", (e) => { autoApply = e.target.checked; });
   $("project-select").addEventListener("change", (e) => { projectId = e.target.value || null; updateProjectInfo(); });
 
@@ -1024,11 +1030,13 @@ async function onSend(e) {
     projectId,
     forceImage,
     autoApply,
-    web
+    web,
+    agentId
   };
 
   // Streaming no caso comum; projeto/imagem/web usam o caminho bloqueante (loop agêntico).
-  const useStream = !projectId && !forceImage && !web && !hasImages;
+  // agente ativo usa o caminho bloqueante (persona + conectores + ROI)
+  const useStream = !projectId && !forceImage && !web && !hasImages && !agentId;
   try {
     setStatus("amber", forceImage ? "gerando imagem…" : web ? "pesquisando…" : "pensando…");
     if (useStream) await sendStreaming(payload);
@@ -1051,7 +1059,8 @@ function applyAssistantResponse(r) {
       provider: r.usedProvider, modelId: r.usedModelId, usedName: r.usedName,
       usedProviderLabel: r.usedProviderLabel, fallbackLevel: r.usedFallbackLevel,
       category: r.category, reason: r.reason, attempts: r.attempts, chain: r.chain,
-      image: r.image, webRefs: r.webRefs, officeFiles: r.officeFiles, pendingActions: r.pendingActions
+      image: r.image, webRefs: r.webRefs, officeFiles: r.officeFiles, pendingActions: r.pendingActions,
+      agent: r.agent, minutesSaved: r.minutesSaved
     }
   });
   const step = {
@@ -1264,6 +1273,12 @@ function renderMessage(msg, msgIdx) {
         html += `</div>`;
       }
       
+      if (msg.meta.agent) {
+        html += `<div class="agent-badge">${escapeHtml(msg.meta.agent.icon || "🤖")} ${escapeHtml(msg.meta.agent.name)}${
+          msg.meta.minutesSaved ? ` <span class="agent-badge-saved">+${msg.meta.minutesSaved} min economizados</span>` : ""
+        }</div>`;
+      }
+
       if (msg.meta.provider) {
         html += `
           <div class="msg-meta-tag">
@@ -1565,6 +1580,343 @@ function refreshStatusHealth() {
       setStatus("red", "desconectado");
     }
   }, 10_000);
+}
+
+// =================================================================
+// AGENTES — criar "cópias suas" que executam trabalhos
+// =================================================================
+async function loadAgents() {
+  const { agents } = await api("/api/agents");
+  const sel = $("agent-select");
+  sel.innerHTML = '<option value="">— sem agente (Prisma padrão) —</option>' +
+    agents.map(a => `<option value="${a.id}" ${a.id === agentId ? "selected" : ""}>${escapeHtml(a.icon + "  " + a.name)}</option>`).join("");
+  if (agentId && !agents.some(a => a.id === agentId)) agentId = null;
+  reflectAgent();
+  return agents;
+}
+
+function reflectAgent() {
+  const sel = $("agent-select");
+  if (!sel) return;
+  sel.classList.toggle("agent-on", Boolean(agentId));
+  const txt = agentId ? (sel.options[sel.selectedIndex]?.text || "").trim() : null;
+  $("chat-input").placeholder = agentId
+    ? `Falando com ${txt} — descreva a tarefa…`
+    : "Fale com seu cowork…  (Enter envia · Shift+Enter quebra linha)";
+}
+
+const FREQ_OPTS = ["diaria", "semanal", "quinzenal", "mensal", "sob demanda"];
+
+// ---- Estúdio: lista de agentes ----
+async function openAgentsModal() {
+  const agents = await loadAgents();
+  const cards = agents.length ? agents.map(a => {
+    const pot = Math.round((a.potentialMonthlyMinutes || 0) / 60);
+    return `
+      <div class="agent-card">
+        <div class="agent-card-icon">${escapeHtml(a.icon || "🤖")}</div>
+        <div class="agent-card-main">
+          <div class="agent-card-name">${escapeHtml(a.name)}</div>
+          <div class="agent-card-desc">${escapeHtml((a.description || a.role || "").slice(0, 110))}</div>
+          <div class="agent-card-meta">
+            ${a.activity?.task ? `<span class="tag">${escapeHtml(a.activity.task)}</span>` : ""}
+            ${pot ? `<span class="tag tag-free">~${pot}h/mês</span>` : ""}
+            ${a.knowledge?.length ? `<span class="tag">${a.knowledge.length} conhecimento${a.indexed ? " ✓" : ""}</span>` : ""}
+            ${a.connectors?.web ? `<span class="tag">web</span>` : ""}
+            ${a.connectors?.folder ? `<span class="tag">pasta</span>` : ""}
+          </div>
+        </div>
+        <div class="agent-card-actions">
+          <button class="btn-sm" data-use="${a.id}">Usar</button>
+          <button class="btn-sm secondary" data-edit="${a.id}">Editar</button>
+          <button class="btn-sm secondary" data-exp="${a.id}">Compartilhar</button>
+          <button class="btn-sm danger" data-del="${a.id}">Excluir</button>
+        </div>
+      </div>`;
+  }).join("") : '<div class="muted">Nenhum agente ainda. Crie o primeiro — ou importe um do Claude.</div>';
+
+  openModal("🧩 Estúdio de Agentes", `
+    <div class="agent-toolbar">
+      <button class="btn-sm" id="ag-new">+ Novo agente</button>
+      <button class="btn-sm secondary" id="ag-import">⬇ Importar arquivo</button>
+      <button class="btn-sm secondary" id="ag-claude">✦ Importar do Claude</button>
+    </div>
+    <div id="agent-list">${cards}</div>
+  `);
+
+  $("ag-new").addEventListener("click", () => openAgentEditor(null));
+  $("ag-import").addEventListener("click", importAgentFile);
+  $("ag-claude").addEventListener("click", openClaudeImport);
+  $("modal-body").querySelectorAll("[data-use]").forEach(b => b.addEventListener("click", async () => {
+    agentId = b.dataset.use; await loadAgents(); closeModal(); setStatus("green", "agente ativo");
+  }));
+  $("modal-body").querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", async () => {
+    const r = await api(`/api/agents/${b.dataset.edit}`); openAgentEditor(r.agent);
+  }));
+  $("modal-body").querySelectorAll("[data-exp]").forEach(b => b.addEventListener("click", () => {
+    window.open(`/api/agents/${b.dataset.exp}/export`, "_blank");
+  }));
+  $("modal-body").querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm("Excluir este agente?")) return;
+    await api(`/api/agents/${b.dataset.del}`, { method: "DELETE" });
+    openAgentsModal();
+  }));
+}
+
+// ---- Estúdio: editor do agente ----
+async function openAgentEditor(agent) {
+  const a = agent || {};
+  const c = a.connectors || {};
+  const act = a.activity || {};
+  const own = a.owner || {};
+  editingKnowledge = JSON.parse(JSON.stringify(a.knowledge || []));
+
+  const projects = (await api("/api/projects")).projects || [];
+  const skills = (await api("/api/skills")).skills || [];
+
+  openModal(a.id ? `Editar — ${a.name}` : "Novo agente", `
+    <div class="agent-form">
+      <div class="form-grid">
+        <div class="form-row" style="max-width:88px"><label>Ícone</label><input id="ag-icon" value="${escapeHtml(a.icon || "🤖")}"></div>
+        <div class="form-row" style="flex:1"><label>Nome</label><input id="ag-name" value="${escapeHtml(a.name || "")}" placeholder="ex: Revisor de Contratos"></div>
+      </div>
+      <div class="form-row"><label>O que ele faz (resumo)</label><input id="ag-desc" value="${escapeHtml(a.description || "")}" placeholder="Revisa contratos e aponta cláusulas de risco"></div>
+
+      <div class="form-section">1 · Persona</div>
+      <div class="form-row"><label>Quem ele é</label><textarea id="ag-role" rows="3" placeholder="Você é um advogado revisor de contratos, objetivo e cético.">${escapeHtml(a.role || "")}</textarea></div>
+      <div class="form-row"><label>Instruções (regras, formato de saída, restrições)</label><textarea id="ag-inst" rows="6" placeholder="Sempre liste riscos em bullets. Nunca invente cláusulas…">${escapeHtml(a.instructions || "")}</textarea></div>
+
+      <div class="form-section">2 · Programação (playbook)</div>
+      <div class="form-row"><label>Passos que ele executa — um por linha</label><textarea id="ag-play" rows="4" placeholder="Ler o documento&#10;Extrair as cláusulas de risco&#10;Sugerir redação alternativa">${escapeHtml((a.playbook || []).join("\n"))}</textarea></div>
+
+      <div class="form-section">3 · Conhecimento</div>
+      <div id="ag-know"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button type="button" class="btn-sm secondary" id="ag-know-add">+ Bloco de texto</button>
+        <button type="button" class="btn-sm secondary" id="ag-know-file">📄 Carregar arquivo</button>
+      </div>
+
+      <div class="form-section">4 · Conectores</div>
+      <div class="conn-grid">
+        <label class="conn"><input type="checkbox" id="ag-web" ${c.web ? "checked" : ""}> 🌐 Pesquisar na web</label>
+        <label class="conn"><input type="checkbox" id="ag-office" ${c.office !== false ? "checked" : ""}> 📊 Gerar planilha/doc</label>
+        <label class="conn"><input type="checkbox" id="ag-image" ${c.image ? "checked" : ""}> 🎨 Gerar imagens</label>
+        <label class="conn"><input type="checkbox" id="ag-auto" ${c.autoApply !== false ? "checked" : ""}> ⚡ Agir sem pedir aprovação</label>
+      </div>
+      <div class="form-grid">
+        <div class="form-row" style="flex:1"><label>Pasta de trabalho</label>
+          <select id="ag-folder"><option value="">— nenhuma —</option>${projects.map(p => `<option value="${p.id}" ${c.folder === p.id ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}</select></div>
+        <div class="form-row" style="flex:1"><label>Skills (Ctrl+clique p/ várias)</label>
+          <select id="ag-skills" multiple size="3">${skills.map(s => `<option value="${escapeHtml(s.name)}" ${(c.skills || []).includes(s.name) ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}</select></div>
+      </div>
+
+      <div class="form-section">5 · Atividade que ele substitui <span class="muted">(base do cálculo de horas)</span></div>
+      <div class="form-row"><label>Atividade (do seu job description)</label><input id="ag-task" value="${escapeHtml(act.task || "")}" placeholder="Revisão de contrato"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Minutos no manual</label><input id="ag-min" type="number" min="0" value="${act.minutesManual ?? 30}"></div>
+        <div class="form-row"><label>Frequência</label><select id="ag-freq">${FREQ_OPTS.map(f => `<option value="${f}" ${act.frequency === f ? "selected" : ""}>${f}</option>`).join("")}</select></div>
+        <div class="form-row"><label>Vezes por período</label><input id="ag-per" type="number" min="0" value="${act.perPeriod ?? 1}"></div>
+      </div>
+
+      <div class="form-section">6 · Dono <span class="muted">(consolida as visões gerenciais)</span></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Usuário</label><input id="ag-user" value="${escapeHtml(own.user || "")}"></div>
+        <div class="form-row"><label>Departamento</label><input id="ag-dept" value="${escapeHtml(own.department || "")}"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>VP / Diretoria</label><input id="ag-vp" value="${escapeHtml(own.vp || "")}"></div>
+        <div class="form-row"><label>Empresa</label><input id="ag-comp" value="${escapeHtml(own.company || "")}"></div>
+      </div>
+
+      <div class="agent-form-actions">
+        <button class="btn-sm" id="ag-save">Salvar agente</button>
+        ${a.id ? `<button class="btn-sm secondary" id="ag-index">📚 Indexar conhecimento</button>` : ""}
+        <button class="btn-sm secondary" id="ag-back">Voltar</button>
+      </div>
+    </div>
+  `);
+
+  renderKnowledgeEditor();
+  $("ag-know-add").addEventListener("click", () => { editingKnowledge.push({ title: "", content: "" }); renderKnowledgeEditor(); });
+  $("ag-know-file").addEventListener("click", () => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".txt,.md,.csv,.json,.html,.js,.py,.yaml,.yml,.xml,.sql";
+    inp.addEventListener("change", () => {
+      const f = inp.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = (e) => { editingKnowledge.push({ title: f.name, content: e.target.result }); renderKnowledgeEditor(); };
+      rd.readAsText(f, "utf-8");
+    });
+    inp.click();
+  });
+  $("ag-back").addEventListener("click", openAgentsModal);
+  $("ag-index")?.addEventListener("click", async () => {
+    const btn = $("ag-index"); btn.textContent = "indexando…"; btn.disabled = true;
+    const r = await api(`/api/agents/${a.id}/index`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    alert(r.ok ? `Conhecimento indexado: ${r.chunks} trecho(s).` : "Falha: " + r.error);
+    btn.textContent = "📚 Indexar conhecimento"; btn.disabled = false;
+  });
+  $("ag-save").addEventListener("click", async () => {
+    const payload = {
+      id: a.id,
+      icon: $("ag-icon").value, name: $("ag-name").value, description: $("ag-desc").value,
+      role: $("ag-role").value, instructions: $("ag-inst").value,
+      playbook: $("ag-play").value.split("\n").map(s => s.trim()).filter(Boolean),
+      knowledge: editingKnowledge.filter(k => (k.content || "").trim()),
+      connectors: {
+        web: $("ag-web").checked, office: $("ag-office").checked, image: $("ag-image").checked,
+        autoApply: $("ag-auto").checked, folder: $("ag-folder").value || null,
+        skills: [...$("ag-skills").selectedOptions].map(o => o.value),
+      },
+      activity: { task: $("ag-task").value, minutesManual: +$("ag-min").value, frequency: $("ag-freq").value, perPeriod: +$("ag-per").value },
+      owner: { user: $("ag-user").value, department: $("ag-dept").value, vp: $("ag-vp").value, company: $("ag-comp").value },
+    };
+    if (!payload.name.trim()) return alert("Dê um nome ao agente.");
+    const r = await api("/api/agents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!r.ok) return alert("Erro ao salvar: " + r.error);
+    if (payload.knowledge.length) {
+      try { await api(`/api/agents/${r.agent.id}/index`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); } catch {}
+    }
+    await loadAgents();
+    openAgentsModal();
+  });
+}
+
+function renderKnowledgeEditor() {
+  const box = $("ag-know");
+  if (!box) return;
+  box.innerHTML = editingKnowledge.length ? editingKnowledge.map((k, i) => `
+    <div class="know-block">
+      <input class="know-title" data-i="${i}" value="${escapeHtml(k.title || "")}" placeholder="Título do bloco">
+      <textarea class="know-content" data-i="${i}" rows="3" placeholder="Cole aqui o conteúdo que o agente precisa saber…">${escapeHtml(k.content || "")}</textarea>
+      <button type="button" class="btn-icon know-del" data-i="${i}" title="Remover">✕</button>
+    </div>`).join("") : '<div class="muted">Sem conhecimento fixo. Adicione políticas, exemplos, terminologia…</div>';
+  box.querySelectorAll(".know-title").forEach(el => el.addEventListener("input", () => { editingKnowledge[+el.dataset.i].title = el.value; }));
+  box.querySelectorAll(".know-content").forEach(el => el.addEventListener("input", () => { editingKnowledge[+el.dataset.i].content = el.value; }));
+  box.querySelectorAll(".know-del").forEach(el => el.addEventListener("click", () => { editingKnowledge.splice(+el.dataset.i, 1); renderKnowledgeEditor(); }));
+}
+
+// ---- Importar agente: arquivo .prisma-agent.json ----
+function importAgentFile() {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json";
+  inp.addEventListener("change", () => {
+    const f = inp.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = async (e) => {
+      const r = await api("/api/agents/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: e.target.result }) });
+      if (!r.ok) return alert("Falha ao importar: " + r.error);
+      await loadAgents(); openAgentsModal();
+    };
+    rd.readAsText(f, "utf-8");
+  });
+  inp.click();
+}
+
+// ---- Importar agente do Claude: prompt de extração + colar JSON ----
+async function openClaudeImport() {
+  const { prompt } = await api("/api/agents/claude-prompt");
+  openModal("✦ Importar agente do Claude", `
+    <div class="muted" style="margin-bottom:10px">Copie o prompt abaixo, cole na conversa com o seu agente do Claude, e traga a resposta dele de volta aqui.</div>
+    <div class="form-row"><label>1 · Prompt para rodar no Claude</label>
+      <textarea id="cl-prompt" rows="7" readonly>${escapeHtml(prompt)}</textarea></div>
+    <button class="btn-sm secondary" id="cl-copy">📋 Copiar prompt</button>
+    <div class="form-row" style="margin-top:14px"><label>2 · Cole aqui a resposta do Claude</label>
+      <textarea id="cl-json" rows="7" placeholder="Cole o JSON que o Claude respondeu (pode colar com o texto em volta)"></textarea></div>
+    <button class="btn-sm" id="cl-import">Criar agente no Prisma</button>
+  `);
+  $("cl-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(prompt); $("cl-copy").textContent = "✓ copiado"; }
+    catch { $("cl-prompt").select(); document.execCommand("copy"); $("cl-copy").textContent = "✓ copiado"; }
+  });
+  $("cl-import").addEventListener("click", async () => {
+    const text = $("cl-json").value.trim();
+    if (!text) return alert("Cole a resposta do Claude.");
+    const r = await api("/api/agents/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    if (!r.ok) return alert("Falha: " + r.error);
+    await loadAgents();
+    openAgentEditor(r.agent);   // abre para revisar/ajustar antes de usar
+  });
+}
+
+// =================================================================
+// PAINEL DE ROI — horas economizadas (usuário, depto, VP, empresa)
+// =================================================================
+let roiRate = localStorage.getItem("prisma-rate") || "";
+
+async function openRoiModal() {
+  const q = roiRate ? `?hourlyRate=${encodeURIComponent(roiRate)}` : "";
+  const d = await api("/api/roi" + q);
+  const money = (v) => (v === undefined || v === null) ? "" : ` · R$ ${Number(v).toLocaleString("pt-BR")}`;
+
+  const table = (title, rows) => !rows || !rows.length ? "" : `
+    <div class="roi-section">
+      <div class="roi-section-title">${title}</div>
+      ${rows.slice(0, 12).map(r => {
+        const max = rows[0].hours || 1;
+        return `<div class="roi-row">
+          <div class="roi-key">${escapeHtml(String(r.key))}</div>
+          <div class="roi-bar"><span style="width:${Math.max(3, (r.hours / max) * 100)}%"></span></div>
+          <div class="roi-val">${r.hours}h${money(r.value)}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  openModal("📈 Horas economizadas", `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-num">${d.totals.hours}h</div><div class="kpi-label">economizadas</div></div>
+      <div class="kpi"><div class="kpi-num">${d.totals.runs}</div><div class="kpi-label">execuções</div></div>
+      <div class="kpi"><div class="kpi-num">${d.totals.agents}</div><div class="kpi-label">agentes</div></div>
+      <div class="kpi"><div class="kpi-num">${d.totals.potentialMonthlyHours}h</div><div class="kpi-label">potencial/mês</div></div>
+      ${d.totals.value !== undefined ? `<div class="kpi kpi-accent"><div class="kpi-num">R$ ${Number(d.totals.value).toLocaleString("pt-BR")}</div><div class="kpi-label">valor gerado</div></div>` : ""}
+    </div>
+
+    <div class="roi-rate">
+      <label>Custo/hora (R$):</label>
+      <input id="roi-rate" type="number" min="0" value="${escapeHtml(roiRate)}" placeholder="ex: 120" style="width:110px">
+      <button class="btn-sm secondary" id="roi-apply">Aplicar</button>
+    </div>
+
+    ${d.totals.runs === 0 ? '<div class="muted" style="margin:16px 0">Nenhuma execução registrada ainda. Use um agente no chat — cada uso soma as horas da atividade mapeada.</div>' : ""}
+    ${table("Por usuário", d.byUser)}
+    ${table("Por departamento", d.byDepartment)}
+    ${table("Por VP / Diretoria", d.byVp)}
+    ${table("Empresa (geral)", d.byCompany)}
+    ${table("Por agente", d.byAgent)}
+    ${table("Por atividade", d.byTask)}
+    ${d.timeline && d.timeline.length ? `<div class="roi-section"><div class="roi-section-title">Evolução mensal</div>${d.timeline.map(t => `<div class="roi-row"><div class="roi-key">${t.month}</div><div class="roi-bar"><span style="width:${Math.max(3, (t.hours / Math.max(...d.timeline.map(x => x.hours))) * 100)}%"></span></div><div class="roi-val">${t.hours}h</div></div>`).join("")}</div>` : ""}
+
+    <div class="roi-section">
+      <div class="roi-section-title">Consolidação da equipe</div>
+      <div class="muted" style="margin-bottom:8px">Cada pessoa exporta suas execuções; importe aqui para consolidar o time.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-sm secondary" id="roi-export">⬆ Exportar minhas execuções</button>
+        <button class="btn-sm secondary" id="roi-import">⬇ Importar execuções da equipe</button>
+      </div>
+    </div>
+  `);
+
+  $("roi-apply").addEventListener("click", () => {
+    roiRate = $("roi-rate").value || "";
+    localStorage.setItem("prisma-rate", roiRate);
+    openRoiModal();
+  });
+  $("roi-export").addEventListener("click", () => window.open("/api/roi/export", "_blank"));
+  $("roi-import").addEventListener("click", () => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".json";
+    inp.addEventListener("change", () => {
+      const f = inp.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = async (e) => {
+        const r = await api("/api/roi/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ runs: e.target.result }) });
+        alert(r.ok ? `${r.added} execução(ões) importada(s).` : "Falha: " + r.error);
+        openRoiModal();
+      };
+      rd.readAsText(f, "utf-8");
+    });
+    inp.click();
+  });
 }
 
 function escapeHtml(unsafe) {

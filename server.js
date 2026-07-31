@@ -23,6 +23,8 @@ const rag = require("./lib/rag");
 const websearch = require("./lib/websearch");
 const office = require("./lib/office");
 const git = require("./lib/git");
+const agents = require("./lib/agents");
+const roi = require("./lib/roi");
 
 const app = express();
 const PORT = process.env.PORT || 3344;
@@ -155,7 +157,7 @@ app.get("/api/catalog", (req, res) => {
 // -----------------------------------------------------------------
 // Construção do system prompt — injeta persona + memória + skills.
 // -----------------------------------------------------------------
-function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, context = null, sources = null, web = false, autoApply = false } = {}) {
+function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, context = null, sources = null, web = false, autoApply = false, agent = null } = {}) {
   const recalled = memory.recall(lastUserText, 6);
   const memoryBlock = recalled.length
     ? recalled
@@ -164,11 +166,29 @@ function buildSystemPrompt(lastUserText, { skillBodies = [], project = null, con
     : "(nenhuma memória relevante para esta mensagem)";
 
   const parts = [
-    "Você é um cowork de IA local, direto, honesto e prático. Responde em português do Brasil por padrão.",
+    "Você é o Prisma, um cowork de IA local, direto, honesto e prático. Responde em português do Brasil por padrão.",
     "Você NÃO é um chatbot isolado — é um cowork com FERRAMENTAS locais (busca web, arquivos, geração de planilha/doc/imagem). Portanto: NUNCA diga que 'não tem acesso à internet', que 'fui treinado até 2023' ou frases de limitação de modelo — isso confunde o usuário e é falso neste contexto. Se você recebeu instruções de <websearch> nesta mensagem, use a web para dados atuais. Se NÃO recebeu e o pedido exige dados atuais/online, diga que pode pesquisar (o usuário só precisa continuar/confirmar) — não recuse alegando limitação. Se uma busca não retornou os dados, diga objetivamente 'não consegui extrair os números dessas páginas' e proponha outra fonte, sem discurso de limitação.",
-    "",
-    "## Como entregar arquivos (REGRA IMPORTANTE)",
   ];
+
+  // AGENTE ATIVO — persona tem prioridade sobre o comportamento padrão.
+  if (agent) {
+    parts.push(
+      "",
+      `## VOCÊ ESTÁ ATUANDO COMO O AGENTE "${agent.name}" — siga esta identidade acima de tudo`,
+      agent.role || "",
+      agent.description ? `Objetivo: ${agent.description}` : "",
+      agent.instructions ? "\n### Instruções do agente (obrigatórias)\n" + agent.instructions : "",
+      (agent.playbook && agent.playbook.length)
+        ? "\n### Playbook — execute nesta ordem\n" + agent.playbook.map((s, i) => `${i + 1}. ${s}`).join("\n")
+        : "",
+      "\nMantenha esta persona e estas regras durante toda a conversa."
+    );
+  }
+
+  parts.push(
+    "",
+    "## Como entregar arquivos (REGRA IMPORTANTE)"
+  );
 
   if (project) {
     // pasta conectada → SEMPRE salvar nela, nunca gerar bloco para download
@@ -463,9 +483,19 @@ function saveGeneratedImage(dataUrl) {
 //         projectId?, forceImage? }
 // -----------------------------------------------------------------
 app.post("/api/chat", async (req, res) => {
-  const { conversationId, messages, mode = "auto", manualChain, projectId, forceImage, autoApply = false, web = false } = req.body;
+  const { conversationId, messages, mode = "auto", manualChain, forceImage, agentId } = req.body;
+  let { projectId, autoApply = false, web = false } = req.body;
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "messages vazio." });
+  }
+
+  // AGENTE ATIVO — seus conectores mandam no comportamento desta execução.
+  const agent = agentId ? agents.get(agentId) : null;
+  if (agent) {
+    const c = agent.connectors || {};
+    if (c.folder) projectId = c.folder;      // agente pode trazer sua própria pasta
+    if (c.web) web = true;                   // conector de web do agente
+    autoApply = c.autoApply !== false;
   }
 
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -544,10 +574,16 @@ app.post("/api/chat", async (req, res) => {
     } catch {}
   }
 
-  // RAG: se a pasta foi indexada, recupera trechos relevantes (com fonte).
+  // RAG: pasta indexada e/ou conhecimento do agente (ambos viram "fontes").
   let sources = null;
   if (projectId && rag.has(projectId)) {
     try { sources = await rag.search(projectId, lastUserText, 6); } catch {}
+  }
+  if (agent && rag.has(agent.id)) {
+    try {
+      const k = await rag.search(agent.id, lastUserText, 6);
+      sources = [...(sources || []), ...k];
+    } catch {}
   }
 
   // Compactação de contexto (conversas longas).
@@ -569,7 +605,7 @@ app.post("/api/chat", async (req, res) => {
   const MAX_ITERS = (project && autoApply) ? 12 : (project || web ? 5 : 2);
 
   for (let iter = 0; iter < MAX_ITERS; iter++) {
-    const systemPrompt = buildSystemPrompt(lastUserText, { skillBodies: loadedSkills, project, context: contextEnabled ? convContext : null, sources, web, autoApply });
+    const systemPrompt = buildSystemPrompt(lastUserText, { skillBodies: loadedSkills, project, context: contextEnabled ? convContext : null, sources, web, autoApply, agent });
     run = await runChain(chain, working, systemPrompt);
     if (!run.ok) {
       return res.status(502).json({ ok: false, error: "Todos os modelos falharam.", attempts: run.attempts, chain });
@@ -702,6 +738,12 @@ app.post("/api/chat", async (req, res) => {
     if (updatedContext) conversations.setContext(convId, convContext);
   } catch {}
 
+  // ROI: registra a execução do agente (minutos economizados da atividade mapeada)
+  let agentRun = null;
+  if (agent) {
+    try { agentRun = agents.logRun(agent, { conversationId: convId }); } catch {}
+  }
+
   res.json({
     ok: true,
     text: finalText,
@@ -726,6 +768,8 @@ app.post("/api/chat", async (req, res) => {
     ragSources: sources ? sources.map((s) => ({ file: s.file, score: s.score })) : null,
     webRefs: webRefs.length ? dedupeRefs(webRefs) : null,
     officeFiles,
+    agent: agent ? { id: agent.id, name: agent.name, icon: agent.icon } : null,
+    minutesSaved: agentRun ? agentRun.minutesSaved : null,
   });
 });
 
@@ -1066,6 +1110,84 @@ app.delete("/api/conversations/:id", (req, res) => {
 // Saúde dos provedores
 // -----------------------------------------------------------------
 app.get("/api/health", (req, res) => res.json({ health: router.healthSnapshot() }));
+
+// -----------------------------------------------------------------
+// AGENTES — criar, usar, compartilhar (export/import) e medir (ROI)
+// -----------------------------------------------------------------
+app.get("/api/agents", (req, res) => {
+  res.json({
+    agents: agents.list().map((a) => ({ ...a, potentialMonthlyMinutes: agents.monthlyPotentialMinutes(a), indexed: rag.has(a.id) })),
+  });
+});
+app.get("/api/agents/claude-prompt", (req, res) => res.json({ prompt: agents.claudeExtractionPrompt() }));
+app.get("/api/agents/:id", (req, res) => {
+  const a = agents.get(req.params.id);
+  if (!a) return res.status(404).json({ error: "agente não encontrado" });
+  res.json({ agent: a, indexed: rag.has(a.id) });
+});
+app.post("/api/agents", (req, res) => {
+  try { res.json({ ok: true, agent: agents.save(req.body || {}) }); }
+  catch (err) { res.status(400).json({ ok: false, error: String(err.message || err) }); }
+});
+app.delete("/api/agents/:id", (req, res) => {
+  rag.remove(req.params.id);
+  res.json({ ok: agents.remove(req.params.id) });
+});
+
+// Compartilhar: exporta o pacote do agente (JSON portátil).
+app.get("/api/agents/:id/export", (req, res) => {
+  const a = agents.get(req.params.id);
+  if (!a) return res.status(404).json({ error: "agente não encontrado" });
+  const name = (a.name || "agente").replace(/[^a-z0-9._-]/gi, "_");
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${name}.prisma-agent.json"`);
+  res.send(JSON.stringify(a, null, 2));
+});
+
+// Importar: aceita JSON do Prisma OU a resposta colada do agente do Claude.
+app.post("/api/agents/import", (req, res) => {
+  try {
+    const { text, owner } = req.body || {};
+    const agent = agents.fromImport(text, { owner });
+    res.json({ ok: true, agent: agents.save(agent) });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: String(err.message || err) });
+  }
+});
+
+// Indexa o conhecimento do agente para busca semântica (RAG).
+app.post("/api/agents/:id/index", async (req, res) => {
+  const a = agents.get(req.params.id);
+  if (!a) return res.status(404).json({ ok: false, error: "agente não encontrado" });
+  if (!a.knowledge?.length) return res.status(400).json({ ok: false, error: "este agente não tem conhecimento cadastrado." });
+  try { res.json({ ok: true, ...(await rag.indexTexts(a.id, a.knowledge)) }); }
+  catch (err) { res.status(500).json({ ok: false, error: String(err.message || err) }); }
+});
+
+// Registro manual de execução (ex.: usei o agente fora do chat).
+app.post("/api/agents/:id/run", (req, res) => {
+  const a = agents.get(req.params.id);
+  if (!a) return res.status(404).json({ ok: false, error: "agente não encontrado" });
+  res.json({ ok: true, run: agents.logRun(a, req.body || {}) });
+});
+
+// Painel de ROI — visões por usuário, departamento, VP e empresa.
+app.get("/api/roi", (req, res) => {
+  res.json(roi.summary({ since: req.query.since || null, hourlyRate: req.query.hourlyRate || null }));
+});
+// Consolidação multi-usuário: importa execuções exportadas de outro Prisma.
+app.get("/api/roi/export", (req, res) => {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="prisma-runs.json"');
+  res.send(JSON.stringify(agents.runs(), null, 2));
+});
+app.post("/api/roi/import", (req, res) => {
+  try {
+    let list = (req.body || {}).runs;
+    if (typeof list === "string") list = JSON.parse(list);
+    res.json({ ok: true, added: agents.importRuns(list) });
+  } catch (err) { res.status(400).json({ ok: false, error: String(err.message || err) }); }
+});
 
 // -----------------------------------------------------------------
 // POST /api/decide — a IA analisa o prompt e decide {web, image}.
