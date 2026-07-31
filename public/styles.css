@@ -124,8 +124,11 @@ body.resizing { cursor: col-resize; user-select: none; }
   display: flex; flex-direction: column; padding: 13px 11px; gap: 11px;
   overflow-y: auto; overflow-x: hidden;
 }
-.sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 2px 4px 4px; }
-.sidebar-brand h1 { font-family: var(--display); font-size: 20px; font-weight: 600; letter-spacing: -0.035em; margin: 0; color: var(--text); }
+.sidebar-brand { display: flex; align-items: center; gap: 9px; padding: 2px 4px 6px; }
+.brand-logo { width: 30px; height: 30px; flex: none; border-radius: 50%; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.1; flex: 1; min-width: 0; }
+.sidebar-brand h1 { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: -0.035em; margin: 0; color: var(--text); }
+.brand-sub { font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint); margin-top: 1px; }
 .brand-accent { color: var(--accent); }
 
 .btn-primary {
@@ -204,6 +207,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 .chat-empty { margin: auto; text-align: center; color: var(--text-dim); max-width: 440px; padding: 20px; }
 .empty-logo { font-size: 40px; margin-bottom: 6px; opacity: .9; }
+.empty-logo-img { width: 76px; height: 76px; margin: 0 auto 12px; display: block; filter: drop-shadow(0 6px 18px rgba(0,0,0,.14)); animation: markIn .6s var(--spring) both; }
+@keyframes markIn { from { opacity: 0; transform: scale(.9) translateY(6px); } to { opacity: 1; transform: none; } }
 .chat-empty h2 { font-family: var(--display); color: var(--text); margin: 0 0 9px; font-size: 23px; font-weight: 600; letter-spacing: -0.025em; }
 .chat-empty p { line-height: 1.6; font-size: 13.5px; }
 

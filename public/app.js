@@ -1147,7 +1147,7 @@ function renderMessages() {
   if (conversation.length === 0) {
     el.innerHTML = `
       <div class="chat-empty" id="chat-empty">
-        <div class="empty-logo">⌘</div>
+        <img src="logo-mark.png" alt="" class="empty-logo-img" />
         <h2>Seu cowork local está pronto</h2>
         <p>Modelos 100% grátis, memória persistente em disco, skills e artefatos. Modo autônomo escolhe o modelo por você.</p>
       </div>
