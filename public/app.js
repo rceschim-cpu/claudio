@@ -48,9 +48,7 @@ function wireUI() {
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleModelPop(false); });
 
   $("btn-new-chat").addEventListener("click", newChat);
-  $("btn-memory").addEventListener("click", openMemoryModal);
-  $("btn-skills").addEventListener("click", openSkillsModal);
-  $("btn-models").addEventListener("click", openModelsModal);
+  $("btn-customize").addEventListener("click", () => openCustomizeModal());
   $("modal-close").addEventListener("click", closeModal);
   // Fecha só quando o clique COMEÇA e TERMINA no fundo. Assim, selecionar
   // texto dentro da janela e soltar o mouse fora não fecha mais.
@@ -723,9 +721,11 @@ async function newChat() {
 // =================================================================
 // MODALS
 // =================================================================
-function openModal(title, bodyHtml) {
+function openModal(title, bodyHtml, { fixed = false } = {}) {
   $("modal-title").textContent = title;
   $("modal-body").innerHTML = bodyHtml;
+  // janela de tamanho fixo (Personalização) — não "pula" ao navegar entre abas
+  document.querySelector(".modal")?.classList.toggle("modal-fixed", fixed);
   $("modal-backdrop").classList.remove("hidden");
 }
 
@@ -734,119 +734,198 @@ function closeModal() {
   $("modal-body").innerHTML = "";
 }
 
-async function openMemoryModal() {
-  try {
-    const r = await api("/api/memory");
-    let html = `
-      <div class="memory-modal">
-        <p style="margin-bottom:12px;color:var(--text-dim);">O cowork local armazena memórias de longo prazo aqui. O modelo lê e grava nelas automaticamente.</p>
-        <ul style="list-style:none;padding:0;max-height:300px;overflow:auto;">
-    `;
-    if (!r.memories || r.memories.length === 0) {
-      html += `<li style="padding:10px;text-align:center;color:var(--text-faint);">Nenhuma memória salva ainda.</li>`;
-    } else {
-      for (const m of r.memories) {
-        html += `
-          <li style="border-bottom:1px solid var(--border);padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;">
-            <div style="flex:1;padding-right:12px;">
-              <b style="color:var(--green);">${escapeHtml(m.name)}</b> <span style="font-size:11px;color:var(--text-faint);">(${escapeHtml(m.type)})</span> - <i>${escapeHtml(m.description || "")}</i>
-              <pre style="font-size:11px;margin:5px 0 0 0;white-space:pre-wrap;color:var(--text-dim);background:var(--bg-3);padding:6px;border:1px solid var(--border-2);">${escapeHtml(m.body || "")}</pre>
-            </div>
-            <button class="btn-ghost" onclick="deleteMemory('${escapeHtml(m.name)}')" style="color:var(--red);margin-top:2px;">✕</button>
-          </li>
-        `;
-      }
-    }
-    html += `</ul></div>`;
-    openModal("Memória Persistente", html);
-  } catch (err) {
-    alert("Erro ao carregar memórias: " + err.message);
-  }
-}
+// =================================================================
+// PERSONALIZAÇÃO — Memória · Skills · Modelos numa janela só.
+// Tamanho fixo; navegação lista → detalhe desliza dentro da mesma janela.
+// =================================================================
+let custTab = "memoria";
 
-window.deleteMemory = async function(name) {
-  if (confirm(`Deseja esquecer a memória "${name}"?`)) {
-    const r = await api(`/api/memory/${encodeURIComponent(name)}`, { method: "DELETE" });
-    if (r.ok) {
-      openMemoryModal();
-    }
-  }
-};
-
-async function openSkillsModal() {
-  try {
-    const r = await api("/api/skills");
-    let html = `
-      <div class="skills-modal">
-        <p style="margin-bottom:12px;color:var(--text-dim);">Skills estendem a capacidade do cowork injetando instruções específicas no prompt do sistema.</p>
-        <ul style="list-style:none;padding:0;max-height:300px;overflow:auto;">
-    `;
-    if (!r.skills || r.skills.length === 0) {
-      html += `<li style="padding:10px;text-align:center;color:var(--text-faint);">Nenhuma skill cadastrada.</li>`;
-    } else {
-      for (const s of r.skills) {
-        html += `
-          <li style="border-bottom:1px solid var(--border);padding:8px 0;display:flex;justify-content:space-between;align-items:flex-start;">
-            <div style="flex:1;padding-right:12px;">
-              <b style="color:var(--green);">${escapeHtml(s.name)}</b> - <i>${escapeHtml(s.description || "")}</i>
-              <pre style="font-size:11px;margin:5px 0 0 0;white-space:pre-wrap;color:var(--text-dim);background:var(--bg-3);padding:6px;border:1px solid var(--border-2);max-height:100px;overflow:auto;">${escapeHtml(s.body || "")}</pre>
-            </div>
-            <button class="btn-ghost" onclick="deleteSkill('${escapeHtml(s.name)}')" style="color:var(--red);margin-top:2px;">✕</button>
-          </li>
-        `;
-      }
-    }
-    html += `</ul></div>`;
-    openModal("Skills do Sistema", html);
-  } catch (err) {
-    alert("Erro ao carregar skills: " + err.message);
-  }
-}
-
-window.deleteSkill = async function(name) {
-  if (confirm(`Deseja excluir a skill "${name}"?`)) {
-    const r = await api(`/api/skills/${encodeURIComponent(name)}`, { method: "DELETE" });
-    if (r.ok) {
-      openSkillsModal();
-    }
-  }
-};
-
-async function openModelsModal() {
-  try {
-    const r = await api("/api/discovery/report");
-    let html = `
-      <div class="models-modal">
-        <p style="color:var(--text-dim);">O cowork varre provedores automaticamente para catalogar modelos 100% grátis.</p>
-        <p><b>Última varredura:</b> ${r.lastRun ? new Date(r.lastRun).toLocaleString() : "nunca"}</p>
-        <button class="btn-primary" id="btn-run-discovery" style="margin-bottom:14px;width:100%;">🔍 Varrer agora (Descoberta semanal)</button>
-        <h5 style="margin-bottom:6px;">Relatório de Descoberta:</h5>
-        <pre style="font-family:var(--mono);font-size:11.5px;background:var(--bg-3);padding:10px;border-radius:4px;overflow:auto;max-height:230px;white-space:pre-wrap;border:1px solid var(--border);color:var(--text-dim);">${escapeHtml(r.report || "Sem relatório disponível.")}</pre>
+async function openCustomizeModal(tab) {
+  custTab = tab || custTab || "memoria";
+  openModal("Personalização", `
+    <div class="cust">
+      <div class="cust-tabs" role="tablist">
+        <button type="button" class="cust-tab" data-tab="memoria">Memória</button>
+        <button type="button" class="cust-tab" data-tab="skills">Skills</button>
+        <button type="button" class="cust-tab" data-tab="modelos">Modelos</button>
       </div>
-    `;
-    openModal("Descoberta de Modelos Grátis", html);
-    
-    $("btn-run-discovery").addEventListener("click", async () => {
-      setStatus("amber", "varrendo…");
-      $("btn-run-discovery").disabled = true;
-      $("btn-run-discovery").textContent = "Varrendo provedores…";
-      try {
-        const res = await api("/api/discovery/run", { method: "POST" });
-        setStatus("green", "ok");
-        if (res.ok) {
-          alert("Descoberta finalizada com sucesso!");
-          openModelsModal();
-        } else {
-          alert("Erro na descoberta: " + res.error);
-        }
-      } catch (e) {
-        setStatus("red", "erro");
-        alert("Erro ao executar varredura: " + e.message);
-      }
+      <div class="cust-stage">
+        <div class="cust-list" id="cust-list"></div>
+        <div class="cust-detail" id="cust-detail"></div>
+      </div>
+    </div>
+  `, { fixed: true });
+
+  $("modal-body").querySelectorAll(".cust-tab").forEach(b =>
+    b.addEventListener("click", () => { custTab = b.dataset.tab; renderCustTab(); }));
+  renderCustTab();
+}
+
+function custBack() {
+  const st = document.querySelector(".cust-stage");
+  st?.classList.remove("detail-open");
+  setTimeout(() => { const d = $("cust-detail"); if (d && !st?.classList.contains("detail-open")) d.innerHTML = ""; }, 320);
+}
+
+// Abre o detalhe DENTRO da mesma janela (desliza da direita).
+function custShowDetail(title, html) {
+  const d = $("cust-detail");
+  if (!d) return;
+  d.innerHTML = `
+    <div class="cust-detail-head">
+      <button type="button" class="cust-back" id="cust-back">‹</button>
+      <span class="cust-detail-title">${escapeHtml(title)}</span>
+    </div>
+    <div class="cust-detail-body">${html}</div>`;
+  d.querySelector("#cust-back").addEventListener("click", custBack);
+  document.querySelector(".cust-stage")?.classList.add("detail-open");
+}
+
+async function renderCustTab() {
+  custBack();
+  $("modal-body").querySelectorAll(".cust-tab").forEach(b => b.classList.toggle("on", b.dataset.tab === custTab));
+  const list = $("cust-list");
+  if (!list) return;
+  list.innerHTML = '<div class="cust-empty">carregando…</div>';
+
+  if (custTab === "memoria") return renderCustMemoria(list);
+  if (custTab === "skills") return renderCustSkills(list);
+  return renderCustModelos(list);
+}
+
+// ---- Memória: lista enxuta, detalhe só ao clicar ----
+async function renderCustMemoria(list) {
+  const r = await api("/api/memory");
+  const mems = r.memories || [];
+  list.innerHTML = `
+    <div class="cust-intro">Fatos que o Prisma lembra entre conversas. Ele grava e apaga sozinho.</div>
+    ${mems.length ? mems.map((m, i) => `
+      <button type="button" class="cust-item" data-i="${i}">
+        <div class="cust-item-main">
+          <div class="cust-item-name">${escapeHtml(m.name)}</div>
+          <div class="cust-item-sub">${escapeHtml(m.description || m.body || "")}</div>
+        </div>
+        <span class="cust-item-tag">${escapeHtml(m.type || "")}</span>
+        <span class="cust-chev">›</span>
+      </button>`).join("") : '<div class="cust-empty">Nenhuma memória ainda.</div>'}
+  `;
+  list.querySelectorAll("[data-i]").forEach(b => b.addEventListener("click", () => {
+    const m = mems[+b.dataset.i];
+    custShowDetail(m.name, `
+      <div class="cust-meta">${escapeHtml(m.type || "")}${m.updated ? " · " + escapeHtml(m.updated) : ""}</div>
+      ${m.description ? `<div class="cust-desc">${escapeHtml(m.description)}</div>` : ""}
+      <pre class="cust-pre">${escapeHtml(m.body || "")}</pre>
+      <button class="btn-sm danger" id="cust-del">Esquecer esta memória</button>
+    `);
+    $("cust-del").addEventListener("click", async () => {
+      if (!confirm(`Esquecer "${m.name}"?`)) return;
+      await api(`/api/memory/${encodeURIComponent(m.name)}`, { method: "DELETE" });
+      renderCustTab();
     });
-  } catch (err) {
-    alert("Erro ao carregar relatório: " + err.message);
-  }
+  }));
+}
+
+// ---- Skills: lista + criar nova (no mesmo painel) ----
+async function renderCustSkills(list) {
+  const r = await api("/api/skills");
+  const skills = r.skills || [];
+  list.innerHTML = `
+    <div class="cust-intro">Instruções especializadas que o Prisma injeta quando a tarefa pede.</div>
+    <button type="button" class="cust-item cust-item-add" id="cust-new-skill">
+      <div class="cust-item-main"><div class="cust-item-name">＋ Nova skill</div></div>
+      <span class="cust-chev">›</span>
+    </button>
+    ${skills.length ? skills.map((s, i) => `
+      <button type="button" class="cust-item" data-i="${i}">
+        <div class="cust-item-main">
+          <div class="cust-item-name">${escapeHtml(s.name)}</div>
+          <div class="cust-item-sub">${escapeHtml(s.description || "")}</div>
+        </div>
+        <span class="cust-chev">›</span>
+      </button>`).join("") : '<div class="cust-empty">Nenhuma skill cadastrada.</div>'}
+  `;
+
+  $("cust-new-skill").addEventListener("click", () => {
+    custShowDetail("Nova skill", `
+      <div class="form-row"><label>Nome</label><input id="sk-name" placeholder="ex: revisor-codigo"></div>
+      <div class="form-row"><label>Quando usar</label><input id="sk-desc" placeholder="Revisa código procurando bugs"></div>
+      <div class="form-row"><label>Instruções</label><textarea id="sk-body" rows="8" placeholder="Passo a passo que o modelo deve seguir…"></textarea></div>
+      <button class="btn-sm" id="sk-save">Salvar skill</button>
+    `);
+    $("sk-save").addEventListener("click", async () => {
+      const name = $("sk-name").value.trim(), body = $("sk-body").value.trim();
+      if (!name || !body) return alert("Nome e instruções são obrigatórios.");
+      await api("/api/skills", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, description: $("sk-desc").value, body }) });
+      renderCustTab();
+    });
+  });
+
+  list.querySelectorAll("[data-i]").forEach(b => b.addEventListener("click", () => {
+    const s = skills[+b.dataset.i];
+    custShowDetail(s.name, `
+      ${s.description ? `<div class="cust-desc">${escapeHtml(s.description)}</div>` : ""}
+      <pre class="cust-pre">${escapeHtml(s.body || "")}</pre>
+      <button class="btn-sm danger" id="cust-del">Excluir skill</button>
+    `);
+    $("cust-del").addEventListener("click", async () => {
+      if (!confirm(`Excluir a skill "${s.name}"?`)) return;
+      await api(`/api/skills/${encodeURIComponent(s.name)}`, { method: "DELETE" });
+      renderCustTab();
+    });
+  }));
+}
+
+// ---- Modelos: descoberta + provedores (detalhe lista os modelos) ----
+async function renderCustModelos(list) {
+  const disc = await api("/api/discovery/report");
+  // só provedores que realmente oferecem modelos grátis (o Prisma é free-only)
+  const sources = Object.entries(CATALOG)
+    .filter(([, p]) => p.hasKey && p.models.some(m => m.input === 0 && m.output === 0));
+  list.innerHTML = `
+    <div class="cust-intro">O Prisma varre os provedores toda semana e usa apenas modelos 100% grátis.</div>
+    <button type="button" class="cust-item" id="cust-disc">
+      <div class="cust-item-main">
+        <div class="cust-item-name">Descoberta automática</div>
+        <div class="cust-item-sub">Última varredura: ${disc.lastRun ? new Date(disc.lastRun).toLocaleString("pt-BR") : "nunca"}</div>
+      </div>
+      <span class="cust-chev">›</span>
+    </button>
+    ${sources.map(([pid, p]) => {
+      const free = p.models.filter(m => m.input === 0 && m.output === 0).length;
+      return `<button type="button" class="cust-item" data-p="${pid}">
+        <div class="cust-item-main">
+          <div class="cust-item-name"><span class="cust-dot" style="background:${p.color || "var(--accent)"}"></span>${escapeHtml(p.label)}</div>
+          <div class="cust-item-sub">${free} modelo(s) grátis</div>
+        </div>
+        <span class="cust-chev">›</span>
+      </button>`;
+    }).join("")}
+  `;
+
+  $("cust-disc").addEventListener("click", () => {
+    custShowDetail("Descoberta automática", `
+      <div class="cust-desc">Roda sozinha toda semana. Você pode forçar uma varredura agora.</div>
+      <button class="btn-sm" id="run-disc">Varrer agora</button>
+      <pre class="cust-pre" style="margin-top:12px">${escapeHtml(disc.report || "Sem relatório ainda.")}</pre>
+    `);
+    $("run-disc").addEventListener("click", async () => {
+      const b = $("run-disc"); b.disabled = true; b.textContent = "varrendo…";
+      const res = await api("/api/discovery/run", { method: "POST" });
+      if (res.ok) { CATALOG = await api("/api/catalog"); renderCustTab(); }
+      else { b.disabled = false; b.textContent = "Varrer agora"; alert("Erro: " + res.error); }
+    });
+  });
+
+  list.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => {
+    const p = CATALOG[b.dataset.p];
+    const models = p.models.filter(m => m.input === 0 && m.output === 0)
+      .sort((a, c) => String(c.released || "").localeCompare(String(a.released || "")));
+    custShowDetail(p.label, models.length ? models.map(m => `
+      <div class="cust-model">
+        <div class="cust-item-name">${escapeHtml(m.name)}</div>
+        <div class="cust-item-sub">${escapeHtml(String(m.released || "").slice(0, 10))}${m.context ? " · " + escapeHtml(m.context) : ""}</div>
+      </div>`).join("") : '<div class="cust-empty">Sem modelos grátis neste provedor.</div>');
+  }));
 }
 
 // =================================================================
