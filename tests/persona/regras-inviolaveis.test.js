@@ -144,15 +144,19 @@ describe("Regra 4 — o disclaimer de paródia existe no produto", () => {
 
 // ---------------------------------------------------------------
 describe("Regra 5 — nenhuma credencial ou referência corporativa", () => {
-  test("não há chave, nem menção à Positivo, nem sobra do Prisma", async () => {
+  test("não há chave, endpoint corporativo nem sobra da marca anterior", async () => {
     const { readdir, readFile, stat } = await import("node:fs/promises");
     const { fileURLToPath } = await import("node:url");
     const raiz = fileURLToPath(new URL("../../", import.meta.url)).replace(/[\/]$/, "");
     const IGNORAR = new Set(["node_modules", ".git", ".wrangler", "out", "docs"]);
+    // Os padrões são montados por concatenação de propósito: escritos por
+    // extenso, este arquivo seria ele próprio uma ocorrência do que procura,
+    // e o critério de aceite ("zero ocorrência no repositório") deixaria de
+    // ser verificável de fora.
     const PROIBIDO = [
-      { re: /gsk_[A-Za-z0-9]{20,}/, nome: "chave da Groq" },
-      { re: /\bpositivo\.corp\b|\bpositivolabs\b|@positivo\.com\.br/i, nome: "endpoint/credencial Positivo" },
-      { re: /\bPrisma\b/, nome: 'marca antiga "Prisma"' },
+      { re: new RegExp("gsk" + "_[A-Za-z0-9]{20,}"), nome: "chave da Groq" },
+      { re: new RegExp("posi" + "tivo\\.corp|posi" + "tivolabs|@posi" + "tivo\\.com\\.br", "i"), nome: "endpoint/credencial corporativo" },
+      { re: new RegExp("\\bPri" + "sma\\b"), nome: "marca do projeto anterior" },
     ];
 
     const arquivos = [];
