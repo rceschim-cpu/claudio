@@ -12,7 +12,6 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Claudio — Inteligência Aproximada" />
 <meta property="og:description" content="Paródia de assistente de IA. Tudo que ele diz é invenção." />
-<meta property="og:image" content="assets/logo.svg" />
 <meta name="twitter:card" content="summary" />
 
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
@@ -21,75 +20,137 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400..700,0..100,0..1;1,9..144,400..700,0..100,0..1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-<!-- textura de grão, por cima de tudo, sem bloquear clique -->
-<div class="grain" aria-hidden="true"></div>
+<div class="grao" aria-hidden="true"></div>
 
-<div class="frame">
+<div class="app">
 
-  <!-- ================= CABEÇALHO ================= -->
-  <header class="topo">
-    <div class="marca">
-      <img src="assets/logo.svg" alt="" class="sol" id="sol" />
-      <div class="marca-txt">
-        <h1 class="wordmark">Claudio<span class="ast">✻</span></h1>
-        <p class="tagline">Inteligência Aproximada. Resultados surpreendentes.</p>
+  <!-- ============================ SIDEBAR ============================ -->
+  <aside class="lateral" id="lateral">
+
+    <div class="lat-topo">
+      <span class="marca">
+        <img src="assets/logo.svg" alt="" class="marca-sol" />
+        Claudio<i class="ast">✳</i>
+      </span>
+      <button class="ico" data-zoa="busca" title="Buscar">⌕</button>
+    </div>
+
+    <!-- abas: Code fica trancado atrás do bafômetro -->
+    <div class="abas">
+      <button class="aba ativa" data-zoa="inicio">⌂ Início</button>
+      <button class="aba travada" data-zoa="code">&lt;/&gt; Code <i class="cadeado">🔒</i></button>
+    </div>
+
+    <button class="novo" id="btn-novo">＋ Novo</button>
+
+    <nav class="menu">
+      <button class="item" data-zoa="conversas"><i>💬</i> Conversas e desculpas</button>
+      <button class="item" data-zoa="projetos"><i>🗃</i> Projetos <small>(3 parados)</small></button>
+      <button class="item" data-zoa="artefatos"><i>🏺</i> Artefatos</button>
+      <button class="item" data-zoa="programado"><i>🕐</i> Programado</button>
+      <button class="item" data-zoa="skills"><i>🎓</i> Skills</button>
+      <button class="item" data-zoa="personalizar"><i>🎛</i> Personalizar</button>
+    </nav>
+
+    <div class="secao">
+      <span class="secao-tit">Fixado</span>
+      <button class="item leve" data-zoa="fixado"><i>📌</i> Desculpa pro chefe (rascunho)</button>
+      <button class="item leve" data-zoa="fixado"><i>📌</i> Plano de dieta (2019)</button>
+      <button class="item leve" data-zoa="fixado"><i>📌</i> Ideia de app milionário</button>
+    </div>
+
+    <!-- ===== BAFÔMETRO — o medidor que entorta a interface ===== -->
+    <div class="bafo" id="bafo" data-zoa="bafometro" role="button" tabindex="0">
+      <div class="bafo-topo">
+        <span class="bafo-rot">Bafômetro</span>
+        <span class="bafo-num" id="bafo-num">0,08</span>
       </div>
+      <div class="bafo-trilho"><div class="bafo-nivel" id="bafo-nivel"></div><i class="bafo-limite" title="limite pra programar: 0,34"></i></div>
+      <span class="bafo-estado" id="bafo-estado">sóbrio (suspeito)</span>
     </div>
 
-    <div class="medidor" id="medidor" title="Quanto de cota ainda resta hoje">
-      <span class="medidor-icone">☕</span>
-      <span class="medidor-txt" id="medidor-txt">—</span>
+    <div class="lat-rodape" data-zoa="conta">
+      <span class="avatar">C</span>
+      <span class="conta-txt"><b>Claudio</b><small>plano gratuito eterno</small></span>
     </div>
-  </header>
+  </aside>
 
-  <!-- faixa de aviso: paródia (regra 4, parte 1) -->
-  <div class="faixa" role="note">
-    <span class="faixa-in">
-      PARÓDIA&nbsp;&nbsp;✻&nbsp;&nbsp;TUDO É INVENÇÃO&nbsp;&nbsp;✻&nbsp;&nbsp;NÃO CONFIE EM NADA DISSO&nbsp;&nbsp;✻&nbsp;&nbsp;
-      PARÓDIA&nbsp;&nbsp;✻&nbsp;&nbsp;TUDO É INVENÇÃO&nbsp;&nbsp;✻&nbsp;&nbsp;NÃO CONFIE EM NADA DISSO&nbsp;&nbsp;✻&nbsp;&nbsp;
-    </span>
+  <!-- ============================ PRINCIPAL ============================ -->
+  <main class="centro">
+
+    <!-- barra de celular: sem ela, a lateral (e o bafômetro) fica
+         inalcançável na tela pequena, que é onde a piada circula -->
+    <div class="topo-movel">
+      <button class="menu-btn" id="menu-btn" aria-label="Abrir menu" aria-expanded="false">☰</button>
+      <span class="marca-movel">Claudio<i class="ast">✳</i></span>
+      <span class="bafo-chip" id="bafo-chip" data-zoa="bafometro">0,08</span>
+    </div>
+
+    <div class="faixa" role="note">
+      <span class="faixa-in">
+        PARÓDIA ✳ TUDO É INVENÇÃO ✳ NÃO CONFIE EM NADA DISSO ✳
+        PARÓDIA ✳ TUDO É INVENÇÃO ✳ NÃO CONFIE EM NADA DISSO ✳
+      </span>
+    </div>
+
+    <!-- tela de abertura -->
+    <div class="abertura" id="abertura">
+      <img src="assets/logo.svg" alt="" class="sol" />
+      <h1 class="saudacao" id="saudacao">Boa tarde, chefia</h1>
+      <p class="sub">Inteligência Aproximada. Resultados surpreendentes.</p>
+    </div>
+
+    <!-- conversa -->
+    <div class="conversa" id="conversa" aria-live="polite"></div>
+
+    <!-- composer -->
+    <div class="compositor-area">
+      <form class="compositor" id="form">
+        <label class="sr" for="entrada">Sua pergunta</label>
+        <textarea id="entrada" rows="1" maxlength="1200" autocomplete="off"
+          placeholder="Como posso te atrapalhar hoje?"></textarea>
+
+        <div class="compositor-barra">
+          <button type="button" class="ico" data-zoa="anexo" title="Anexar">＋</button>
+
+          <div class="pilulas">
+            <button type="button" class="pilula ativa">Chat</button>
+            <button type="button" class="pilula travada" data-zoa="cowork">Cowork</button>
+          </div>
+
+          <button type="button" class="modelo" data-zoa="modelo">
+            Claudio 0.3 <span class="modelo-sub">Instável</span> ⌄
+          </button>
+
+          <button type="submit" class="mandar" id="enviar" title="Enviar">→</button>
+        </div>
+      </form>
+
+      <p class="disclaimer">
+        <strong>Claudio é uma paródia.</strong> Tudo que ele diz é invenção.
+        Sem qualquer relação com qualquer empresa de IA real.
+      </p>
+    </div>
+  </main>
+</div>
+
+<!-- ============================ POPUP ============================ -->
+<div class="cortina hidden" id="cortina">
+  <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popup-tit">
+    <button class="popup-x" id="popup-x" aria-label="Fechar">✕</button>
+    <span class="popup-selo" id="popup-selo">indisponível</span>
+    <h2 class="popup-tit" id="popup-tit"></h2>
+    <p class="popup-txt" id="popup-txt"></p>
+    <div class="popup-pe">
+      <button class="popup-btn" id="popup-ok"></button>
+    </div>
   </div>
-
-  <!-- ================= CONVERSA ================= -->
-  <main class="conversa" id="conversa" aria-live="polite" aria-label="Conversa com o Claudio"></main>
-
-  <!-- sugestões de partida -->
-  <div class="atalhos" id="atalhos">
-    <button class="atalho" data-q="Qual a capital da Austrália?">capital da Austrália?</button>
-    <button class="atalho" data-q="Como eu economizo dinheiro esse mês?">como economizo dinheiro?</button>
-    <button class="atalho" data-q="Me explica como funciona a internet.">como funciona a internet?</button>
-    <button class="atalho" data-q="Você é bom no que faz?">você é bom nisso?</button>
-  </div>
-
-  <!-- ================= ENTRADA ================= -->
-  <form class="barra" id="form">
-    <label class="sr" for="entrada">Sua pergunta</label>
-    <textarea id="entrada" rows="1" maxlength="1200" autocomplete="off"
-      placeholder="Pergunta qualquer coisa. Ele responde errado com convicção."></textarea>
-    <button type="submit" id="enviar" class="botao">
-      <span class="botao-txt">Manda</span>
-      <span class="botao-seta" aria-hidden="true">→</span>
-    </button>
-  </form>
-
-  <!-- ================= RODAPÉ ================= -->
-  <footer class="rodape">
-    <p class="disclaimer">
-      <strong>Claudio é uma paródia.</strong> Tudo que ele diz é invenção.
-      Sem qualquer relação com qualquer empresa de IA real.
-    </p>
-    <p class="creditos">
-      Não use nada disso pra decidir coisa nenhuma da sua vida ·
-      <a href="https://github.com/rceschim-cpu/claudio" rel="noopener">código</a>
-    </p>
-  </footer>
-
 </div>
 
 <script src="config.js"></script>

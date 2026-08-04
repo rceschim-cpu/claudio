@@ -1,49 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  PLACEHOLDER — substituir pela arte oficial.
+  Símbolo do Claudio — sol com cara de tio.
 
-  Este é um stand-in construído a partir do manual de marca (sol de raios
-  terracota, rosto de óculos e bigode). Serve para o app não ficar quebrado
-  enquanto a arte final não chega. Troque este arquivo mantendo o nome e o
-  viewBox 0 0 200 200 e nada mais precisa mudar.
+  Redesenhado em vetor a partir da arte enviada (docs/brand/simbolo-render.png),
+  que veio como render em PNG com fundo e brilho e por isso não servia como
+  asset. Se você tiver o vetor original, é só sobrescrever este arquivo
+  mantendo o nome e o viewBox 0 0 200 200 — nada mais precisa mudar.
+
+  Cores do manual: #D94841 terracota · #2E2E2E grafite
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Claudio">
   <title>Claudio</title>
+
+  <defs>
+    <!-- raio: uma cápsula, repetida em volta -->
+    <g id="raio"><rect x="96" y="6" width="8" height="24" rx="4"/></g>
+    <clipPath id="cabeca"><circle cx="100" cy="102" r="46"/></clipPath>
+  </defs>
+
+  <!-- raios -->
   <g fill="#D94841">
-    <!-- raios -->
-    <g id="raios">
-      <g>
-        <rect x="96.5" y="2" width="7" height="26" rx="3.5"/>
-        <g transform="rotate(22.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(45 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(67.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(90 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(112.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(135 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(157.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(180 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(202.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(225 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(247.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(270 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(292.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-        <g transform="rotate(315 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
-        <g transform="rotate(337.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
-      </g>
-    </g>
-
-    <!-- cabeça -->
-    <circle cx="100" cy="100" r="58" fill="none" stroke="#D94841" stroke-width="9"/>
-
-    <!-- cabelo -->
-    <path d="M74 60 q9 -13 18 -2 q9 -12 17 0 q9 -11 17 3" fill="none" stroke="#D94841" stroke-width="8" stroke-linecap="round"/>
-
-    <!-- óculos -->
-    <circle cx="80" cy="95" r="16" fill="none" stroke="#D94841" stroke-width="8"/>
-    <circle cx="120" cy="95" r="16" fill="none" stroke="#D94841" stroke-width="8"/>
-    <path d="M96 95 h8" stroke="#D94841" stroke-width="8" stroke-linecap="round"/>
-
-    <!-- bigode -->
-    <path d="M100 122 q-14 -9 -25 -1 q-4 12 10 14 q11 1 15 -13 q4 14 15 13 q14 -2 10 -14 q-11 -8 -25 1 z"/>
+    <use href="#raio"/>
+    <use href="#raio" transform="rotate(24 100 102)"/>
+    <use href="#raio" transform="rotate(48 100 102)"/>
+    <use href="#raio" transform="rotate(72 100 102)"/>
+    <use href="#raio" transform="rotate(96 100 102)"/>
+    <use href="#raio" transform="rotate(120 100 102)"/>
+    <use href="#raio" transform="rotate(144 100 102)"/>
+    <use href="#raio" transform="rotate(168 100 102)"/>
+    <use href="#raio" transform="rotate(192 100 102)"/>
+    <use href="#raio" transform="rotate(216 100 102)"/>
+    <use href="#raio" transform="rotate(240 100 102)"/>
+    <use href="#raio" transform="rotate(264 100 102)"/>
+    <use href="#raio" transform="rotate(288 100 102)"/>
+    <use href="#raio" transform="rotate(312 100 102)"/>
+    <use href="#raio" transform="rotate(336 100 102)"/>
   </g>
+
+  <!-- rosto -->
+  <circle cx="100" cy="102" r="46" fill="#D94841"/>
+
+  <!-- topete, um tom mais fundo, recortado pela cabeça -->
+  <g clip-path="url(#cabeca)">
+    <path d="M54 84 q6 -30 34 -34 q30 -4 46 18 q6 9 5 20
+             q-10 -14 -28 -17 q6 8 4 15 q-14 -14 -35 -12 q-19 2 -26 10 z"
+          fill="#BE3A34"/>
+  </g>
+
+  <!-- óculos -->
+  <g fill="#2E2E2E">
+    <!-- lentes -->
+    <rect x="58" y="88" width="36" height="27" rx="11"/>
+    <rect x="106" y="88" width="36" height="27" rx="11"/>
+    <!-- ponte e hastes -->
+    <rect x="92" y="94" width="16" height="7" rx="3.5"/>
+    <rect x="49" y="92" width="11" height="7" rx="3.5"/>
+    <rect x="140" y="92" width="11" height="7" rx="3.5"/>
+  </g>
+  <!-- olhos, vazados por cima das lentes -->
+  <circle cx="76" cy="101" r="5.5" fill="#D94841"/>
+  <circle cx="124" cy="101" r="5.5" fill="#D94841"/>
+
+  <!-- bigode -->
+  <path d="M100 124
+           q-6 -7 -17 -7 q-14 0 -18 10 q-2 9 8 11 q14 2 20 -11
+           q6 13 20 11 q10 -2 8 -11 q-4 -10 -18 -10 q-11 0 -17 7 z"
+        fill="#2E2E2E"/>
+
+  <!-- sorriso -->
+  <path d="M92 143 q8 5 16 0" fill="none" stroke="#2E2E2E"
+        stroke-width="5" stroke-linecap="round"/>
 </svg>

@@ -36,6 +36,11 @@ export const groq = {
             model: modelId,
             messages: [{ role: "system", content: system }, ...messages],
             max_tokens: config.maxTokens,
+            // gpt-oss é modelo de raciocínio: os tokens de reasoning saem do
+            // MESMO orçamento de saída. Sem isto ele gasta os 220 pensando e
+            // a piada sai cortada no meio — 30 de 30 respostas truncadas na
+            // bancada. A piada não precisa de raciocínio; precisa de timing.
+            ...(/gpt-oss|reasoning|qwq|deepseek-r/i.test(modelId) ? { reasoning_effort: "low" } : {}),
             // Temperatura alta de propósito: o produto é humor, e resposta
             // previsível não é engraçada duas vezes.
             temperature: 1.0,

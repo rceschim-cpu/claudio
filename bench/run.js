@@ -84,6 +84,9 @@ async function chamar({ modelo, system, texto, chave, base, maxTokens }) {
         { role: "user", content: texto },
       ],
       max_tokens: maxTokens,
+      // mesmo ajuste do Worker: modelo de raciocínio gasta o orçamento de
+      // saída pensando e entrega piada cortada
+      ...(/gpt-oss|reasoning|qwq|deepseek-r/i.test(modelo) ? { reasoning_effort: "low" } : {}),
       temperature: 1.0,
       top_p: 0.95,
       presence_penalty: 0.4,
