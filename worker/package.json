@@ -1,0 +1,16 @@
+{
+  "name": "claudio-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend do Claudio: guarda a chave da Groq, modera a entrada e segura o orçamento do free tier",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "secret": "wrangler secret put GROQ_API_KEY"
+  },
+  "devDependencies": {
+    "wrangler": "^4.28.0"
+  }
+}
