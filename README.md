@@ -196,10 +196,16 @@ Paleta, símbolo e tom vêm de `docs/brand/manual-de-marca.png`:
 `#1E8E5A` verde · `#39D98A` menta · `#F7F1E3` creme · `#2E2E2E` grafite ·
 `#D94841` terracota · `#F4B400` âmbar
 
-`web/assets/logo.svg` foi redesenhado em vetor a partir de
-`docs/brand/simbolo-render.png`, que veio como render com fundo e brilho.
-Para trocar pela arte final, sobrescreva o arquivo mantendo o nome e o
-`viewBox 0 0 200 200`.
+A arte oficial está em dois recortes, feitos a partir do PNG enviado
+(`docs/brand/simbolo-render.png`, guardado como referência):
+
+- `web/assets/mark.png` — só o símbolo. Favicon, ícone de app e tela de abertura.
+- `web/assets/logo.png` — lockup aparado. Marca da lateral e da barra de celular.
+
+Os dois são necessários porque a arte é símbolo **+** wordmark, e a lateral já
+escreve o nome ao lado — usar o lockup inteiro nos dois lugares duplicaria a
+palavra. Ambos foram reamostrados para o tamanho de exibição (1,4 MB → 121 KB).
+Para trocar, sobrescreva mantendo os nomes.
 
 Uma nota sobre tipografia: o manual indica a fonte *Claude* para títulos. É a
 tipografia proprietária de um produto de IA existente, e usá-la literalmente
