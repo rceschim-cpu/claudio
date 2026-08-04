@@ -25,7 +25,7 @@ CLAUDIO_SESSION_PER_DAY = "60"
 CLAUDIO_HISTORY_TURNS = "6"
 
 CLAUDIO_KILL_SWITCH = "off"
-ALLOWED_ORIGINS = "https://rceschim-cpu.github.io,http://localhost:5173,http://127.0.0.1:5173"
+ALLOWED_ORIGINS = "https://rceschim-cpu.github.io,http://localhost:8787,http://127.0.0.1:8787"
 
 # GROQ_API_KEY NÃO fica aqui. É secret:
 #   npx wrangler secret put GROQ_API_KEY

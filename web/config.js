@@ -3,12 +3,10 @@
 // isto é servido estático em repositório público. A chave da Groq vive só
 // no Worker.
 (() => {
-  // ⚠️ TROQUE DEPOIS DO PRIMEIRO DEPLOY.
-  // O `npm run deploy` imprime a URL real no final. O subdomínio NÃO é o seu
-  // usuário do GitHub — é o subdomínio workers.dev da conta Cloudflare, que
-  // pode ser outro. Enquanto esta URL estiver errada, o site carrega mas o
-  // Claudio responde que não conseguiu chegar no servidor.
-  const WORKER = "https://claudio.rceschim-cpu.workers.dev";
+  // URL do Worker publicado. Se um dia mudar de conta ou de nome, é aqui.
+  // (O subdomínio é o da conta Cloudflare, não o usuário do GitHub — são
+  // diferentes neste projeto e isso já custou uma confusão.)
+  const WORKER = "https://claudio.rceschim.workers.dev";
 
   // Em dev (`npm run dev`) o próprio Worker serve este site, então a API está
   // na mesma origem e caminho relativo basta. No GitHub Pages, não — aí vale
