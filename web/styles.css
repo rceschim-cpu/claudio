@@ -49,7 +49,9 @@
   --tilt-lat: -0.03deg;
   --tilt-comp: 0.02deg;
   --tilt-fala: 0.01deg;
-  --desfoque: 0.02px;
+  /* --desfoque saiu: borrar o texto atrapalhava a leitura sem acrescentar
+     piada. O efeito de bêbado vem de inclinação, dos eixos WONK/SOFT da
+     fonte e da visão dupla, que distorcem sem prejudicar quem lê. */
   --duplo: 0.24px;
   --deriva: 0.003em;
   --wonk: 0.08;
@@ -109,15 +111,14 @@ body {
 }
 
 /* A marca é a arte enviada (lockup: símbolo + wordmark). Como virou
-   imagem, o efeito de bêbado nela é só desfoque e inclinação — os eixos
-   variáveis da fonte continuam valendo na saudação e nos títulos. */
+   imagem, o efeito de bêbado nela é só a inclinação — os eixos variáveis
+   da fonte continuam valendo na saudação e nos títulos. */
 .marca {
   height: 34px;
   width: auto;
   max-width: 172px;
   object-fit: contain;
   object-position: left center;
-  filter: blur(var(--desfoque));
   transform: rotate(var(--tilt-fala));
 }
 
@@ -166,6 +167,21 @@ body {
 .item.leve { color: var(--tinta-2); font-size: 0.83rem; }
 
 .secao { margin-top: 16px; }
+.secao-conversas { min-height: 0; }
+
+.lista-conversas { display: flex; flex-direction: column; gap: 1px; max-height: 190px; overflow-y: auto; }
+.lista-conversas .vazio { font-size: 0.78rem; color: var(--tinta-3); padding: 2px 10px 6px; }
+
+.conversa-item { position: relative; padding-right: 26px; }
+.conversa-item.ativa { background: var(--papel-3); font-weight: 500; }
+.conversa-tit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.conversa-x {
+  position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+  font-size: 0.72rem; color: var(--tinta-3); opacity: 0;
+  padding: 2px 4px; border-radius: 5px;
+}
+.conversa-item:hover .conversa-x { opacity: 1; }
+.conversa-x:hover { color: var(--terracota); background: var(--papel); }
 .secao-tit {
   font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--tinta-3); padding: 0 10px 6px;
@@ -268,7 +284,6 @@ body {
   width: auto; height: 72px;
   animation: nascer 0.7s var(--mola) both;
   transform: rotate(var(--sol-giro));
-  filter: blur(var(--desfoque));
 }
 @keyframes nascer { from { transform: scale(0.5) rotate(-70deg); opacity: 0; } }
 
@@ -279,7 +294,6 @@ body {
   font-weight: 500;
   letter-spacing: var(--deriva);
   margin: 0;
-  filter: blur(var(--desfoque));
   text-shadow: var(--duplo) 0 0 rgba(217, 72, 65, 0.3);
 }
 .sub { color: var(--tinta-2); font-size: 0.9rem; margin: 0; }
@@ -311,7 +325,6 @@ body {
 /* a fala do Claudio é a que borra — a do usuário fica sempre nítida,
    porque quem bebeu foi ele */
 .fala.claudio .fala-txt {
-  filter: blur(var(--desfoque));
   letter-spacing: var(--deriva);
   text-shadow: var(--duplo) 0 0 rgba(30, 142, 90, 0.26);
   transform: rotate(var(--tilt-fala));
@@ -326,6 +339,15 @@ body {
 }
 
 .fala.aviso .fala-txt { color: var(--terracota); font-weight: 500; }
+
+/* o café: o momento em que o medidor despenca e a tela volta a ficar reta */
+.fala.cafe .fala-txt {
+  color: var(--verde);
+  font-weight: 500;
+  border-left: 3px solid var(--verde);
+  padding-left: 12px;
+}
+.fala.cafe .fala-quem::after { content: " ☕"; }
 
 /* Ele leu a palavra errada. Marca discreta — sublinhado ondulado e um
    tortinho — pra ler como piada e não como bug. O texto original fica no
@@ -517,8 +539,7 @@ body {
   .marca-movel {
     height: 26px; width: auto; max-width: 130px;
     object-fit: contain;
-    filter: blur(var(--desfoque));
-  }
+    }
   .bafo-chip {
     margin-left: auto;
     padding: 4px 11px;
@@ -538,11 +559,11 @@ body {
 }
 
 /* Acessibilidade: a piada não vale um mal-estar. Sem movimento e sem
-   desfoque para quem pediu movimento reduzido — o bafômetro continua
+   distorção para quem pediu movimento reduzido — o bafômetro continua
    contando e as piadas continuam iguais, só a interface para de girar. */
 @media (prefers-reduced-motion: reduce) {
   :root { --tilt-lat: 0deg; --tilt-comp: 0deg; --tilt-fala: 0deg;
-           --desfoque: 0px; --duplo: 0px; --deriva: 0em;
+           --duplo: 0px; --deriva: 0em;
            --sol-giro: 0deg; --ast-giro: 0deg; --wonk: 0; --soft: 0; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

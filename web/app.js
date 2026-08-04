@@ -14,8 +14,119 @@
   const entrada = $("entrada");
   const enviar = $("enviar");
 
-  const historico = [];
+  let historico = [];
   let ocupado = false;
+
+  // ==============================================================
+  // CONVERSAS
+  //
+  // Guardadas no localStorage do próprio navegador. O servidor não vê e não
+  // guarda nada: é produto sem conta, sem cadastro e sem e-mail, e a memória
+  // de conversa não podia ser a exceção que quebra isso.
+  // ==============================================================
+  const CHAVE = "claudio-conversas";
+  let conversas = [];
+  let atual = null;
+
+  function carregarConversas() {
+    try {
+      conversas = JSON.parse(localStorage.getItem(CHAVE) || "[]");
+    } catch {
+      conversas = [];
+    }
+    if (!Array.isArray(conversas)) conversas = [];
+  }
+
+  function salvarConversas() {
+    // 20 é o bastante para navegar e pouco o bastante para não estourar o
+    // localStorage com conversa antiga que ninguém vai reler.
+    conversas = conversas.slice(0, 20);
+    try {
+      localStorage.setItem(CHAVE, JSON.stringify(conversas));
+    } catch {
+      /* cota do navegador cheia: a conversa da vez continua funcionando */
+    }
+  }
+
+  function tituloDe(msgs) {
+    const primeira = msgs.find((m) => m.role === "user");
+    if (!primeira) return "Conversa vazia";
+    return primeira.content.length > 34 ? primeira.content.slice(0, 34) + "…" : primeira.content;
+  }
+
+  function persistirAtual() {
+    if (!historico.length) return;
+    const reg = conversas.find((c) => c.id === atual);
+    if (reg) {
+      reg.msgs = historico;
+      reg.titulo = tituloDe(historico);
+      reg.em = Date.now();
+      // conversa mexida vai pro topo
+      conversas = [reg, ...conversas.filter((c) => c.id !== atual)];
+    } else {
+      conversas.unshift({ id: atual, titulo: tituloDe(historico), msgs: historico, em: Date.now() });
+    }
+    salvarConversas();
+    pintarConversas();
+  }
+
+  function pintarConversas() {
+    const lista = $("lista-conversas");
+    lista.innerHTML = "";
+    if (!conversas.length) {
+      lista.innerHTML = '<span class="vazio">nenhuma ainda. e olha que eu tenho tempo.</span>';
+      return;
+    }
+    for (const c of conversas) {
+      const b = document.createElement("button");
+      b.className = "item leve conversa-item" + (c.id === atual ? " ativa" : "");
+      b.innerHTML = '<i>💬</i><span class="conversa-tit"></span>';
+      b.querySelector(".conversa-tit").textContent = c.titulo;
+      b.addEventListener("click", () => abrirConversa(c.id));
+      const x = document.createElement("span");
+      x.className = "conversa-x";
+      x.textContent = "✕";
+      x.title = "Apagar";
+      x.addEventListener("click", (e) => {
+        e.stopPropagation();
+        conversas = conversas.filter((k) => k.id !== c.id);
+        salvarConversas();
+        if (c.id === atual) novaConversa();
+        else pintarConversas();
+      });
+      b.appendChild(x);
+      lista.appendChild(b);
+    }
+  }
+
+  function abrirConversa(id) {
+    const c = conversas.find((k) => k.id === id);
+    if (!c) return;
+    persistirAtual();
+    atual = id;
+    historico = c.msgs.slice();
+    conversa.innerHTML = "";
+    conversa.classList.add("ativa");
+    abertura.classList.add("some");
+    for (const m of historico) fala(m.content, m.role === "user" ? "voce" : "claudio");
+    pintarConversas();
+    entrada.focus();
+  }
+
+  function novaConversa() {
+    persistirAtual();
+    atual = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    historico = [];
+    conversa.innerHTML = "";
+    conversa.classList.remove("ativa");
+    abertura.classList.remove("some");
+    bafo.valor = 0.08;
+    bafo.alvo = 0.08;
+    bafo.pintar();
+    pintarConversas();
+    saudar();
+    entrada.focus();
+  }
 
   const sessionId = (() => {
     const k = "claudio-sess";
@@ -34,6 +145,14 @@
   // com o tempo, e o número que ele guarda é a variável CSS que faz a
   // interface inteira entortar. Uma fonte de verdade, efeito em tudo.
   // ==============================================================
+  // Falas do café — o momento em que o medidor despenca.
+  const CAFES = [
+    "Peraí. Café. …Pronto, voltei. Onde a gente estava?",
+    "Segura essa: acabei de tomar um café que ressuscita defunto. Tô outro homem, provavelmente pior.",
+    "Pausa técnica. Café puro, sem açúcar, na caneca do ano passado. Agora sim.",
+    "Tomei um café e minha visão voltou ao normal, que no meu caso ainda é bem ruim.",
+  ];
+
   const bafo = {
     valor: 0.08,
     alvo: 0.08,
@@ -57,9 +176,23 @@
       this.alvo = Math.min(this.MAX, this.alvo + quanto);
     },
 
-    // Metabolismo. Ele processa devagar, como todo mundo.
+    // Metabolismo. Precisa ser rápido o bastante para o medidor OSCILAR:
+    // se ele só sobe, em cinco mensagens crava no teto e o efeito vira
+    // estado fixo — some a graça de ver o número mexer e some o motivo de
+    // continuar conversando. Sobe ~0,06 por resposta e cai ~0,10 por minuto,
+    // então quem lê a resposta com calma vê o Claudio melhorar sozinho.
     metabolizar() {
-      this.alvo = Math.max(0.08, this.alvo - 0.004);
+      this.alvo = Math.max(0.08, this.alvo - 0.0085);
+    },
+
+    // Quando passa do ponto, ele toma um café e o medidor despenca. É o
+    // respiro do ciclo: a tela volta a ficar reta e dá vontade de subir de
+    // novo. Devolve a fala do café, ou null se não for a hora.
+    cafe() {
+      if (this.alvo < 0.86) return null;
+      this.alvo = 0.3;
+      this.valor = Math.min(this.valor, 0.55);
+      return CAFES[Math.floor(Math.random() * CAFES.length)];
     },
 
     // A suavização é feita aqui, em JS, e não com `transition` no CSS.
@@ -105,11 +238,10 @@
       const set = (n, val) => s.setProperty(n, val);
 
       set("--bafo", v.toFixed(3));
-      set("--tilt-lat", (-v * 0.34).toFixed(3) + "deg");
-      set("--tilt-comp", (v * 0.42).toFixed(3) + "deg");
-      set("--tilt-fala", (v * 0.3).toFixed(3) + "deg");
-      set("--desfoque", (v * v * 2.6).toFixed(3) + "px");
-      set("--duplo", (v * v * 4).toFixed(2) + "px");
+      set("--tilt-lat", (-v * 0.5).toFixed(3) + "deg");
+      set("--tilt-comp", (v * 0.6).toFixed(3) + "deg");
+      set("--tilt-fala", (v * 0.45).toFixed(3) + "deg");
+      set("--duplo", (v * v * 3).toFixed(2) + "px");
       set("--deriva", (v * 0.03 - 0.02).toFixed(4) + "em");
       set("--wonk", v.toFixed(2));
       set("--soft", (v * 90).toFixed(0));
@@ -442,7 +574,10 @@
       const res = await fetch(API + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: texto, history: historico.slice(0, -1), sessionId }),
+        // `trocado` vai junto: sem avisar, o modelo "conserta" a palavra
+        // mentalmente e responde ao que ele acha que a pessoa quis dizer —
+        // foi o que aconteceu com "cotovelo", respondido como "código".
+        body: JSON.stringify({ message: texto, history: historico.slice(0, -1), sessionId, trocado }),
       });
       carga = await res.json();
     } catch {
@@ -460,9 +595,16 @@
       historico.push({ role: "assistant", content: carga.text });
       // Cada resposta dele custa um gole. É o que faz a tela entortar
       // ao longo da sessão em vez de tudo de uma vez.
-      bafo.subir(0.055 + Math.random() * 0.035);
+      bafo.subir(0.05 + Math.random() * 0.03);
+
+      const cafe = bafo.cafe();
+      if (cafe) {
+        await new Promise((r) => setTimeout(r, 700));
+        fala(cafe, "claudio", "cafe");
+      }
     }
 
+    persistirAtual();
     travar(false);
   }
 
@@ -502,16 +644,7 @@
     menuBtn.setAttribute("aria-expanded", "false");
   });
 
-  $("btn-novo").addEventListener("click", () => {
-    historico.length = 0;
-    conversa.innerHTML = "";
-    conversa.classList.remove("ativa");
-    abertura.classList.remove("some");
-    bafo.valor = 0.08;
-    bafo.alvo = 0.08;
-    bafo.pintar();
-    entrada.focus();
-  });
+  $("btn-novo").addEventListener("click", novaConversa);
 
   // ==============================================================
   // Abertura
@@ -524,6 +657,9 @@
 
   async function abrir() {
     saudar();
+    carregarConversas();
+    atual = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    pintarConversas();
     bafo.pintar();
     bafo.animar();
     setInterval(() => bafo.metabolizar(), 5000);

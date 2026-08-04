@@ -57,6 +57,10 @@ async function chat(request, env, ctx, cfg, cors) {
   const message = String(body?.message || "").trim();
   const history = Array.isArray(body?.history) ? body.history : [];
   const sessionId = String(body?.sessionId || "").slice(0, 64);
+  // [original, trocada] quando o teclado bêbado mexeu na frase
+  const trocado = Array.isArray(body?.trocado) && body.trocado.length === 2
+    ? body.trocado.map((t) => String(t).slice(0, 40))
+    : null;
 
   if (!message) return json({ error: "mensagem vazia" }, 400, cors);
   if (message.length > MAX_CHARS) {
@@ -111,7 +115,7 @@ async function chat(request, env, ctx, cfg, cors) {
     // O recurso cômico da vez entra aqui, não no arquivo do prompt: o modelo
     // não lembra da resposta anterior, então quem garante a variedade é a
     // rotação de fora.
-    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId),
+    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado),
     messages: [...trimmed, { role: "user", content: message }],
     config: cfg,
     signal: AbortSignal.timeout(25000),
@@ -139,7 +143,7 @@ async function chat(request, env, ctx, cfg, cors) {
 
   return json(
     {
-      text: result.text,
+      text: enxugar(result.text),
       kind: "ok",
       model: result.model,
       usedFallback: Boolean(result.usedFallback),
@@ -169,6 +173,40 @@ async function health(env, cfg, cors) {
     200,
     cors
   );
+}
+
+// -----------------------------------------------------------------
+// Rede de segurança de formato.
+//
+// O prompt manda texto corrido, curto, sem markdown. O modelo obedece quase
+// sempre — e "quase" não serve, porque a resposta que escapa é justamente a
+// que vira print: já saiu resposta com bloco de código, linha de "Fonte:" e
+// três parágrafos, num produto cuja regra é "duas a quatro frases".
+//
+// Então o formato é garantido aqui, deterministicamente. O corte de tamanho
+// acontece SEMPRE em fim de frase: frase cortada no meio mata mais a piada
+// do que resposta comprida.
+const MAX_FRASES = 4;
+
+function enxugar(texto) {
+  let t = String(texto || "");
+
+  t = t.replace(/```[a-z]*\n?/gi, " ");           // cercas de bloco de código
+  t = t.replace(/`([^`]+)`/g, "$1");              // crase inline
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");       // títulos
+  t = t.replace(/^\s*[-*+]\s+/gm, "");            // marcadores de lista
+  t = t.replace(/^\s*\d+[.)]\s+/gm, "");          // listas numeradas
+  t = t.replace(/\*\*([^*]+)\*\*/g, "$1");        // negrito
+  t = t.replace(/(^|\s)\*([^*\n]+)\*/g, "$1$2");  // itálico
+  t = t.replace(/^\s*(fonte|refer[êe]ncia|obs)\s*:.*$/gim, ""); // rodapé falso
+  t = t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+  // corta em fim de frase, nunca no meio
+  const frases = t.match(/[^.!?…]+[.!?…]+(?:\s|$)|[^.!?…]+$/g);
+  if (frases && frases.length > MAX_FRASES) {
+    t = frases.slice(0, MAX_FRASES).join("").trim();
+  }
+  return t;
 }
 
 // -----------------------------------------------------------------
