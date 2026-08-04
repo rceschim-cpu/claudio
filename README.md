@@ -196,11 +196,26 @@ Paleta, símbolo e tom vêm de `docs/brand/manual-de-marca.png`:
 `#1E8E5A` verde · `#39D98A` menta · `#F7F1E3` creme · `#2E2E2E` grafite ·
 `#D94841` terracota · `#F4B400` âmbar
 
-`web/assets/logo.svg` é um **placeholder** construído a partir do manual —
-substitua pela arte final mantendo o nome e o `viewBox`.
+`web/assets/logo.svg` foi redesenhado em vetor a partir de
+`docs/brand/simbolo-render.png`, que veio como render com fundo e brilho.
+Para trocar pela arte final, sobrescreva o arquivo mantendo o nome e o
+`viewBox 0 0 200 200`.
 
 Uma nota sobre tipografia: o manual indica a fonte *Claude* para títulos. É a
 tipografia proprietária de um produto de IA existente, e usá-la literalmente
 seria clonar uma marca específica em vez de parodiar uma categoria — que é
 justamente a diferença que mantém o projeto fora de problema jurídico. O display
-aqui é **Bricolage Grotesque**; **Inter** ficou no corpo, como o manual pede.
+aqui é **Fraunces**, cujos eixos variáveis `WONK` e `SOFT` ainda servem à piada:
+o bafômetro os empurra conforme sobe. **Inter** ficou no corpo, como o manual pede.
+
+## O bafômetro
+
+A mecânica central da interface. Sobe a cada resposta, desce sozinho com o
+tempo, e o número alimenta onze variáveis CSS que inclinam, borram, giram e
+desalinham a tela — quanto mais o usuário conversa, mais torto ele lê. Acima de
+0,34 mg/L o botão **Code** fica trancado, com a desculpa correspondente.
+
+As funções do menu (Cowork, Skills, Projetos, Artefatos, Programado,
+Personalizar) não existem: cada uma abre um popup com a desculpa do Claudio e um
+botão que joga uma pergunta de volta no chat. `prefers-reduced-motion` desliga
+giro e desfoque sem tirar nenhuma piada.
