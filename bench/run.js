@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { moderate } from "../worker/src/moderation.js";
 import { blockReply } from "../worker/src/replies.js";
+import { dicaDeEstilo } from "../worker/src/estilo.js";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const RAIZ = join(AQUI, "..");
@@ -155,7 +156,8 @@ async function main() {
 
     for (const modelo of modelos) {
       await vazao.esperarVez(700);
-      const r = await chamar({ modelo, system, texto: caso.texto, chave, base, maxTokens });
+      // mesma rotação da produção, senão a bancada mede outra coisa
+      const r = await chamar({ modelo, system: system + dicaDeEstilo(caso.texto, "bench"), texto: caso.texto, chave, base, maxTokens });
       vazao.ajustar(r.tokens || 400);
       resultados[modelo] = r;
       process.stdout.write(`\r  [${caso.id}/${prompts.length}] ${caso.categoria.padEnd(14)} ${modelo.padEnd(26)} ${r.erro ? "ERRO " + r.erro : r.ms + "ms"}          `);

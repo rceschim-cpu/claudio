@@ -127,6 +127,103 @@
     },
   };
 
+
+  // ==============================================================
+  // TECLADO BÊBADO
+  //
+  // Dois efeitos, os dois atrelados ao bafômetro:
+  //
+  //   1. digitando  — troca duas letras vizinhas por um instante e conserta
+  //      sozinho. NUNCA altera o texto final: é susto, não sabotagem.
+  //   2. ao enviar  — troca UMA palavra por outra parecida e manda a versão
+  //      trocada pro Claudio. Ele responde à palavra errada, com toda a
+  //      seriedade do mundo, e é aí que está a piada.
+  //
+  // A lista é curada e mansa de propósito. A troca vira mensagem de verdade
+  // e passa pela moderação do servidor; se ela produzisse algo sexual, um
+  // xingamento ou um nome de gente, o usuário levaria bloqueio por uma
+  // palavra que não digitou. Há teste garantindo que toda troca passa limpa.
+  // ==============================================================
+  const TROCAS = {
+    carreira: "calcinha", curriculo: "cardápio", currículo: "cardápio",
+    reuniao: "ressaca", reunião: "ressaca", planilha: "panela",
+    projeto: "prejuízo", relatorio: "revoada", relatório: "revoada",
+    trabalho: "trambolho", emprego: "empréstimo", salario: "salame",
+    salário: "salame", chefe: "chaveiro", entrevista: "entrevero",
+    apresentacao: "aposentadoria", apresentação: "aposentadoria",
+    academia: "padaria", dieta: "picanha", treino: "terno",
+    exercicio: "exorcismo", exercício: "exorcismo", medico: "mecânico",
+    médico: "mecânico", remedio: "recheio", remédio: "recheio",
+    internet: "intestino", computador: "cortador", senha: "sereia",
+    codigo: "cotovelo", código: "cotovelo", servidor: "churrasqueiro",
+    email: "esmalte", "e-mail": "esmalte", arquivo: "arquibancada",
+    faculdade: "feira livre", estudar: "estufar", prova: "provolone",
+    economia: "enxaqueca", investimento: "investida", dinheiro: "dinamite",
+    futuro: "forró", casamento: "cansaço", viagem: "vertigem",
+    ferias: "feiras", férias: "feiras", cachorro: "cachimbo",
+    problema: "poblano", solucao: "salsicha", solução: "salsicha",
+    reforma: "refresco", mudanca: "mandioca", mudança: "mandioca",
+    aluguel: "alho-poró", mercado: "mercúrio", receita: "resenha",
+    curso: "cuscuz", diploma: "diorama", estagio: "estádio",
+    estágio: "estádio", proposta: "compota", contrato: "concreto",
+    imposto: "imposteria", banco: "bancada", cartao: "cartola",
+    cartão: "cartola", vizinho: "vinho", sogra: "sonda",
+  };
+
+  // Fora do horário sóbrio, ele lê errado. Abaixo de 0,2 ainda enxerga.
+  function embaralharPalavras(texto) {
+    if (bafo.valor < 0.2) return { texto, trocado: null };
+    const chance = Math.min(0.55, (bafo.valor - 0.2) * 1.1);
+    if (Math.random() > chance) return { texto, trocado: null };
+
+    // candidatas: palavras do texto que estão na lista
+    const alvos = [];
+    texto.replace(/[\p{L}\-]+/gu, (palavra, i) => {
+      const chave = palavra.toLowerCase();
+      if (TROCAS[chave]) alvos.push({ palavra, chave, i });
+      return palavra;
+    });
+    if (!alvos.length) return { texto, trocado: null };
+
+    const alvo = alvos[Math.floor(Math.random() * alvos.length)];
+    let nova = TROCAS[alvo.chave];
+    if (alvo.palavra[0] === alvo.palavra[0].toUpperCase()) {
+      nova = nova[0].toUpperCase() + nova.slice(1);
+    }
+    return {
+      texto: texto.slice(0, alvo.i) + nova + texto.slice(alvo.i + alvo.palavra.length),
+      trocado: [alvo.palavra, nova],
+    };
+  }
+
+  // Tremida na digitação: inverte duas letras e desfaz sozinho.
+  // Só age com o cursor no fim do texto, pra não sequestrar a posição dele.
+  let tremendo = false;
+  function tremerTeclado() {
+    if (tremendo || bafo.valor < 0.35) return;
+    if (Math.random() > (bafo.valor - 0.35) * 0.35) return;
+    const v = entrada.value;
+    const fim = entrada.selectionStart === v.length && entrada.selectionEnd === v.length;
+    if (!fim || v.length < 4) return;
+
+    const a = v.length - 2;
+    const trocado = v.slice(0, a) + v[a + 1] + v[a] + v.slice(a + 2);
+    if (trocado === v) return;
+
+    tremendo = true;
+    entrada.value = trocado;
+    setTimeout(() => {
+      // devolve exatamente o que a pessoa digitou, mais o que ela digitou
+      // enquanto a letra estava trocada
+      const atual = entrada.value;
+      if (atual.startsWith(trocado)) {
+        entrada.value = v + atual.slice(trocado.length);
+        entrada.setSelectionRange(entrada.value.length, entrada.value.length);
+      }
+      tremendo = false;
+    }, 260 + Math.random() * 220);
+  }
+
   // ==============================================================
   // POPUPS — cada função "de verdade" existe só pra ter uma desculpa
   // ==============================================================
@@ -282,7 +379,7 @@
   // ==============================================================
   // Conversa
   // ==============================================================
-  function fala(texto, quem, variante) {
+  function fala(texto, quem, variante, trocado) {
     abertura.classList.add("some");
     conversa.classList.add("ativa");
 
@@ -301,6 +398,12 @@
       if (p.textContent) corpo.appendChild(p);
     }
 
+    if (trocado) {
+      // marca discreta: passando o mouse dá pra ver o que a pessoa escreveu.
+      // Sem isso, alguém acha que é bug em vez de piada.
+      bloco.classList.add("lido-errado");
+      bloco.title = `você escreveu "${trocado[0]}" — ele leu "${trocado[1]}"`;
+    }
     bloco.append(rot, corpo);
     conversa.appendChild(bloco);
     rolar();
@@ -324,8 +427,11 @@
     texto = String(texto || "").trim();
     if (!texto) return;
 
-    fala(texto, "voce");
-    historico.push({ role: "user", content: texto });
+    // o Claudio lê errado, e é a leitura errada dele que vira a pergunta
+    const { texto: lido, trocado } = embaralharPalavras(texto);
+    fala(lido, "voce", null, trocado);
+    historico.push({ role: "user", content: lido });
+    texto = lido;
     entrada.value = "";
     ajustar();
     travar(true);
@@ -372,7 +478,7 @@
     entrada.style.height = Math.min(entrada.scrollHeight, 150) + "px";
   }
 
-  entrada.addEventListener("input", ajustar);
+  entrada.addEventListener("input", () => { ajustar(); tremerTeclado(); });
   entrada.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();

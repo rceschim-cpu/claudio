@@ -327,6 +327,17 @@ body {
 
 .fala.aviso .fala-txt { color: var(--terracota); font-weight: 500; }
 
+/* Ele leu a palavra errada. Marca discreta — sublinhado ondulado e um
+   tortinho — pra ler como piada e não como bug. O texto original fica no
+   title, pra quem passar o mouse. */
+.fala.lido-errado .fala-txt {
+  text-decoration: underline wavy var(--terracota);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  transform: rotate(0.5deg);
+  cursor: help;
+}
+
 /* pensando */
 .pensando { display: flex; align-items: center; gap: 9px; color: var(--tinta-2); font-size: 0.92rem; max-width: 720px; width: 100%; margin: 0 auto; }
 .pontos { display: inline-flex; gap: 4px; }

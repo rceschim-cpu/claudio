@@ -15,6 +15,7 @@ import { getProvider } from "./providers/index.js";
 import { moderate } from "./moderation.js";
 import { getLedger, anonHash, dayKey } from "./ledger.js";
 import { blockReply, quotaReply, offlineReply, brokenReply, GREETINGS } from "./replies.js";
+import { dicaDeEstilo } from "./estilo.js";
 
 export { Ledger } from "./ledger.js";
 
@@ -107,7 +108,10 @@ async function chat(request, env, ctx, cfg, cors) {
   // ---- provider ---------------------------------------------------
   const provider = getProvider(cfg.provider.id);
   const result = await provider.chat({
-    system: CLAUDIO_PROMPT,
+    // O recurso cômico da vez entra aqui, não no arquivo do prompt: o modelo
+    // não lembra da resposta anterior, então quem garante a variedade é a
+    // rotação de fora.
+    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId),
     messages: [...trimmed, { role: "user", content: message }],
     config: cfg,
     signal: AbortSignal.timeout(25000),

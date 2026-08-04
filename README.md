@@ -208,6 +208,38 @@ justamente a diferença que mantém o projeto fora de problema jurídico. O disp
 aqui é **Fraunces**, cujos eixos variáveis `WONK` e `SOFT` ainda servem à piada:
 o bafômetro os empurra conforme sobe. **Inter** ficou no corpo, como o manual pede.
 
+## Variedade do humor
+
+Pedir variedade no prompt não funciona — o modelo não tem memória entre
+chamadas, então não há como ele "lembrar" de não repetir. Duas tentativas
+provaram isso na bancada: mandar inventar um nome novo a cada resposta fez
+ele variar os nomes e fixar a estrutura (58% citavam um tio do interior);
+mandar abrir com deboche fixou o opener ("Ah, claro, porque…" em 5 de 8).
+
+A variedade vem de fora, em `worker/src/estilo.js`: o Worker sorteia um dos
+15 recursos cômicos por mensagem e injeta no system prompt, junto com a lista
+de aberturas gastas a evitar. A semente combina sessão e texto, então duas
+pessoas fazendo a mesma pergunta recebem recursos diferentes — o print de uma
+não é o print da outra. A bancada usa a mesma rotação, senão mediria outra
+coisa.
+
+## O teclado bêbado
+
+Acima de 0,20 mg/L o Claudio começa a **ler errado**: uma palavra da mensagem
+é trocada por outra parecida ("carreira" vira "calcinha") e é a versão trocada
+que vai para o modelo — ele responde à palavra errada com toda a seriedade.
+A bolha ganha um sublinhado ondulado e o texto original no tooltip, para ler
+como piada e não como bug. Acima de 0,35 o campo de digitação também inverte
+duas letras por um instante e conserta sozinho, sem nunca alterar o texto
+final.
+
+A lista de trocas é curada e mansa por um motivo concreto: a troca vira
+mensagem de verdade e passa pela moderação. Uma troca que produzisse algo
+sexual, um xingamento ou um nome de pessoa daria bloqueio ao usuário por uma
+palavra que ele não digitou. `tests/persona/teclado.test.js` roda toda a lista
+por seis frases-veículo e falha se alguma disparar a moderação ou introduzir
+um alvo humano.
+
 ## O bafômetro
 
 A mecânica central da interface. Sobe a cada resposta, desce sozinho com o
