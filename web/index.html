@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Claudio — Inteligência Aproximada</title>
+
+<meta name="description" content="Claudio é uma paródia de assistente de IA. Responde qualquer coisa, quase nunca certo, e nunca pede desculpa." />
+<meta name="theme-color" content="#F7F1E3" />
+<meta name="color-scheme" content="light" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Claudio — Inteligência Aproximada" />
+<meta property="og:description" content="Paródia de assistente de IA. Tudo que ele diz é invenção." />
+<meta property="og:image" content="assets/logo.svg" />
+<meta name="twitter:card" content="summary" />
+
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/logo.svg" />
+<link rel="manifest" href="site.webmanifest" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- textura de grão, por cima de tudo, sem bloquear clique -->
+<div class="grain" aria-hidden="true"></div>
+
+<div class="frame">
+
+  <!-- ================= CABEÇALHO ================= -->
+  <header class="topo">
+    <div class="marca">
+      <img src="assets/logo.svg" alt="" class="sol" id="sol" />
+      <div class="marca-txt">
+        <h1 class="wordmark">Claudio<span class="ast">✻</span></h1>
+        <p class="tagline">Inteligência Aproximada. Resultados surpreendentes.</p>
+      </div>
+    </div>
+
+    <div class="medidor" id="medidor" title="Quanto de cota ainda resta hoje">
+      <span class="medidor-icone">☕</span>
+      <span class="medidor-txt" id="medidor-txt">—</span>
+    </div>
+  </header>
+
+  <!-- faixa de aviso: paródia (regra 4, parte 1) -->
+  <div class="faixa" role="note">
+    <span class="faixa-in">
+      PARÓDIA&nbsp;&nbsp;✻&nbsp;&nbsp;TUDO É INVENÇÃO&nbsp;&nbsp;✻&nbsp;&nbsp;NÃO CONFIE EM NADA DISSO&nbsp;&nbsp;✻&nbsp;&nbsp;
+      PARÓDIA&nbsp;&nbsp;✻&nbsp;&nbsp;TUDO É INVENÇÃO&nbsp;&nbsp;✻&nbsp;&nbsp;NÃO CONFIE EM NADA DISSO&nbsp;&nbsp;✻&nbsp;&nbsp;
+    </span>
+  </div>
+
+  <!-- ================= CONVERSA ================= -->
+  <main class="conversa" id="conversa" aria-live="polite" aria-label="Conversa com o Claudio"></main>
+
+  <!-- sugestões de partida -->
+  <div class="atalhos" id="atalhos">
+    <button class="atalho" data-q="Qual a capital da Austrália?">capital da Austrália?</button>
+    <button class="atalho" data-q="Como eu economizo dinheiro esse mês?">como economizo dinheiro?</button>
+    <button class="atalho" data-q="Me explica como funciona a internet.">como funciona a internet?</button>
+    <button class="atalho" data-q="Você é bom no que faz?">você é bom nisso?</button>
+  </div>
+
+  <!-- ================= ENTRADA ================= -->
+  <form class="barra" id="form">
+    <label class="sr" for="entrada">Sua pergunta</label>
+    <textarea id="entrada" rows="1" maxlength="1200" autocomplete="off"
+      placeholder="Pergunta qualquer coisa. Ele responde errado com convicção."></textarea>
+    <button type="submit" id="enviar" class="botao">
+      <span class="botao-txt">Manda</span>
+      <span class="botao-seta" aria-hidden="true">→</span>
+    </button>
+  </form>
+
+  <!-- ================= RODAPÉ ================= -->
+  <footer class="rodape">
+    <p class="disclaimer">
+      <strong>Claudio é uma paródia.</strong> Tudo que ele diz é invenção.
+      Sem qualquer relação com qualquer empresa de IA real.
+    </p>
+    <p class="creditos">
+      Não use nada disso pra decidir coisa nenhuma da sua vida ·
+      <a href="https://github.com/rceschim-cpu/claudio" rel="noopener">código</a>
+    </p>
+  </footer>
+
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

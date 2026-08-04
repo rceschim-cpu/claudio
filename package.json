@@ -1,22 +1,19 @@
 {
-  "name": "cowork-llm-local",
-  "version": "2.0.0",
-  "description": "Cowork de IA local: roteamento entre modelos grátis, memória, skills, artefatos, RAG, web search, geração de Office e análise de pastas",
-  "main": "server.js",
-  "type": "commonjs",
+  "name": "claudio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Claudio — paródia de assistente de IA. Inteligência Aproximada, resultados surpreendentes.",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "cli": "node cli.js",
-    "test": "node test/smoke.js"
+    "dev": "npm --prefix worker run dev",
+    "deploy": "npm --prefix worker run deploy",
+    "secret": "npm --prefix worker run secret",
+    "tail": "npm --prefix worker run tail",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "bench": "node bench/run.js",
+    "postinstall": "npm --prefix worker install --no-audit --no-fund"
   },
-  "dependencies": {
-    "docx": "^9.7.1",
-    "dotenv": "^16.4.5",
-    "exceljs": "^4.4.0",
-    "express": "^4.21.0",
-    "node-fetch": "^2.7.0",
-    "pdfkit": "^0.19.1",
-    "pptxgenjs": "^4.0.1"
+  "engines": {
+    "node": ">=20"
   }
 }

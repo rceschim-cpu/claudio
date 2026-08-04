@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PLACEHOLDER — substituir pela arte oficial.
+
+  Este é um stand-in construído a partir do manual de marca (sol de raios
+  terracota, rosto de óculos e bigode). Serve para o app não ficar quebrado
+  enquanto a arte final não chega. Troque este arquivo mantendo o nome e o
+  viewBox 0 0 200 200 e nada mais precisa mudar.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Claudio">
+  <title>Claudio</title>
+  <g fill="#D94841">
+    <!-- raios -->
+    <g id="raios">
+      <g>
+        <rect x="96.5" y="2" width="7" height="26" rx="3.5"/>
+        <g transform="rotate(22.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(45 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(67.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(90 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(112.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(135 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(157.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(180 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(202.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(225 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(247.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(270 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(292.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+        <g transform="rotate(315 100 100)"><rect x="96.5" y="2" width="7" height="26" rx="3.5"/></g>
+        <g transform="rotate(337.5 100 100)"><rect x="96.5" y="6" width="7" height="19" rx="3.5"/></g>
+      </g>
+    </g>
+
+    <!-- cabeça -->
+    <circle cx="100" cy="100" r="58" fill="none" stroke="#D94841" stroke-width="9"/>
+
+    <!-- cabelo -->
+    <path d="M74 60 q9 -13 18 -2 q9 -12 17 0 q9 -11 17 3" fill="none" stroke="#D94841" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- óculos -->
+    <circle cx="80" cy="95" r="16" fill="none" stroke="#D94841" stroke-width="8"/>
+    <circle cx="120" cy="95" r="16" fill="none" stroke="#D94841" stroke-width="8"/>
+    <path d="M96 95 h8" stroke="#D94841" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- bigode -->
+    <path d="M100 122 q-14 -9 -25 -1 q-4 12 10 14 q11 1 15 -13 q4 14 15 13 q14 -2 10 -14 q-11 -8 -25 1 z"/>
+  </g>
+</svg>

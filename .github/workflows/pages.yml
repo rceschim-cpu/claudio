@@ -1,0 +1,49 @@
+name: Publicar site no Pages
+
+# Publica APENAS web/ — arquivo estático, sem segredo nenhum.
+# A GROQ_API_KEY não entra aqui e nem poderia: secret de Actions só existe
+# durante o build, e o Pages não tem runtime. Injetá-la no bundle a tornaria
+# pública. Quem guarda a chave é o Worker (worker/).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir que nenhuma chave vazou para o estático
+        run: |
+          if grep -rEn 'gsk_[A-Za-z0-9]{20,}' web/; then
+            echo "::error::chave de API encontrada em web/ — abortando"
+            exit 1
+          fi
+          echo "web/ limpo"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
