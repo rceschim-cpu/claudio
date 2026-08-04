@@ -7,6 +7,6 @@
   "background_color": "#F7F1E3",
   "theme_color": "#F7F1E3",
   "icons": [
-    { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "assets/mark.png", "sizes": "256x285", "type": "image/png", "purpose": "any" }
   ]
 }

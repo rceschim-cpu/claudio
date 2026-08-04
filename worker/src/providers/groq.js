@@ -93,12 +93,21 @@ export const groq = {
     const primary = await attempt(model);
     if (primary.ok) return { ...primary, usedFallback: false };
 
-    // 429 e 401 não melhoram trocando de modelo — são da conta, não do modelo.
-    if (primary.error === "rate_limited" || primary.error === "unauthorized") return primary;
+    // 401 é credencial: trocar de modelo não resolve.
+    if (primary.error === "unauthorized") return primary;
     if (!fallbackModel || fallbackModel === model) return primary;
 
+    // 429 TAMBÉM vale tentar no fallback. Os limites do free tier da Groq são
+    // POR MODELO, não por conta — na bancada o llama estourou a cota diária
+    // dele e devolveu 429 em 27 chamadas seguidas enquanto o gpt-oss
+    // respondeu as 30 sem falha. Antes o código desistia no 429 achando que
+    // era da conta, o que derrubaria o site no meio do dia com o outro modelo
+    // vivo do lado.
     const backup = await attempt(fallbackModel);
-    return backup.ok ? { ...backup, usedFallback: true } : primary;
+    if (backup.ok) return { ...backup, usedFallback: true };
+
+    // Os dois no teto: aí sim é hora da mensagem de cota.
+    return primary.error === "rate_limited" ? primary : backup.error === "rate_limited" ? backup : primary;
   },
 };
 

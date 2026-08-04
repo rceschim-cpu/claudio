@@ -108,31 +108,17 @@ body {
   padding: 2px 6px 14px;
 }
 
+/* A marca é a arte enviada (lockup: símbolo + wordmark). Como virou
+   imagem, o efeito de bêbado nela é só desfoque e inclinação — os eixos
+   variáveis da fonte continuam valendo na saudação e nos títulos. */
 .marca {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--display);
-  font-variation-settings: "SOFT" var(--soft), "WONK" var(--wonk), "opsz" 40;
-  font-size: 1.55rem;
-  font-weight: 600;
-  letter-spacing: var(--deriva);
+  height: 34px;
+  width: auto;
+  max-width: 172px;
+  object-fit: contain;
+  object-position: left center;
   filter: blur(var(--desfoque));
-}
-/* o símbolo fica sempre visível aqui — a tela de abertura some assim que
-   a conversa começa, e a marca não pode sumir junto */
-.marca-sol {
-  width: 26px; height: 26px; flex: none;
-  transform: rotate(var(--sol-giro));
-}
-
-.ast {
-  color: var(--terracota);
-  font-style: normal;
-  font-size: 0.62em;
-  vertical-align: super;
-  display: inline-block;
-  transform: rotate(var(--ast-giro));
+  transform: rotate(var(--tilt-fala));
 }
 
 /* abas Início / Code */
@@ -279,7 +265,7 @@ body {
 .abertura.some { display: none; }
 
 .sol {
-  width: 64px; height: 64px;
+  width: auto; height: 72px;
   animation: nascer 0.7s var(--mola) both;
   transform: rotate(var(--sol-giro));
   filter: blur(var(--desfoque));
@@ -518,9 +504,8 @@ body {
     background: var(--papel); color: var(--tinta); cursor: pointer;
   }
   .marca-movel {
-    font-family: var(--display);
-    font-variation-settings: "SOFT" var(--soft), "WONK" var(--wonk), "opsz" 30;
-    font-size: 1.2rem; font-weight: 600;
+    height: 26px; width: auto; max-width: 130px;
+    object-fit: contain;
     filter: blur(var(--desfoque));
   }
   .bafo-chip {
