@@ -1,26 +1,61 @@
 // worker/src/providers/index.js
-// Registro de providers.
+// A corrente. Percorre `provedor:modelo` até alguém responder.
 //
-// CONTRATO — um provider é um objeto:
-//   { id: string,
-//     label: string,
-//     chat({ system, messages, config, signal }) -> Promise<Result> }
+// Por que multi-provedor e não só multi-modelo: o teto do free tier é por
+// MODELO e por CONTA. Cinco modelos da Groq dividem o teto da conta Groq;
+// um modelo da Groq e um da Mistral não dividem nada. Cada provedor a mais
+// é um balde novo, não outro copo do mesmo balde.
 //
-// Result (sucesso):  { ok: true, text, model, usedFallback, usage: {in, out} }
-// Result (falha):    { ok: false, error: ErrorCode, retryAfter?, detail? }
-// ErrorCode:         "rate_limited" | "unauthorized" | "unavailable"
-//                  | "bad_request" | "timeout"
-//
-// Hoje só a Groq está registrada — é o único provider do produto. A camada
-// existe porque plugar a xAI depois precisa ser "escrever ./xai.js e adicionar
-// uma linha aqui", não uma refatoração.
+// A ordem sai da bancada (`node bench/ranking.js`), não de palpite. Já
+// erramos isso uma vez: um modelo de 8B ficou em segundo lugar por causa
+// de uma amostra que depois se revelou copiada de um exemplo do prompt.
 
-import { groq } from "./groq.js";
+import { criarProvider, ENV_CHAVE } from "./openai-compat.js";
 
-const REGISTRY = new Map([[groq.id, groq]]);
+const CACHE = new Map();
 
-export function getProvider(id) {
-  const p = REGISTRY.get(id);
-  if (!p) throw new Error(`provider desconhecido: ${id}`);
-  return p;
+function provider(id) {
+  if (!CACHE.has(id)) CACHE.set(id, criarProvider(id));
+  return CACHE.get(id);
 }
+
+/**
+ * @param {Array<{provedor:string, modelo:string}>} corrente
+ * @returns {Promise<{ok:boolean, text?, model?, provedor?, tentativas?, usedFallback?, usage?, error?, retryAfter?}>}
+ */
+export async function chamarCorrente({ corrente, env, system, messages, maxTokens, signal }) {
+  let ultimoRate = null;
+  let ultimo = null;
+  let tentativas = 0;
+
+  for (const elo of corrente) {
+    const chave = env[ENV_CHAVE[elo.provedor]];
+    // Elo sem chave é pulado em silêncio: dá para configurar a corrente
+    // inteira e ir adicionando chave conforme cria conta, sem quebrar nada.
+    if (!chave || !chave.trim()) continue;
+
+    tentativas++;
+    let r;
+    try {
+      r = await provider(elo.provedor).chat({
+        system, messages, modelo: elo.modelo, chave: chave.trim(), maxTokens, signal,
+      });
+    } catch (e) {
+      r = { ok: false, error: "unavailable", detail: String(e && e.message) };
+    }
+
+    if (r.ok) {
+      return { ...r, model: elo.modelo, provedor: elo.provedor, tentativas, usedFallback: tentativas > 1 };
+    }
+
+    // 401 é credencial DAQUELE provedor — os outros podem estar bons, então
+    // a corrente continua. (Diferente de quando havia um provedor só.)
+    if (r.error === "rate_limited") ultimoRate = r;
+    ultimo = r;
+  }
+
+  if (!tentativas) return { ok: false, error: "unauthorized", detail: "nenhum elo da corrente tem chave" };
+  return ultimoRate || ultimo || { ok: false, error: "unavailable" };
+}
+
+export { ENV_CHAVE };

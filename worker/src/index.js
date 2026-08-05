@@ -11,7 +11,7 @@
 
 import CLAUDIO_PROMPT from "../../prompts/claudio.md";
 import { readConfig, estimateTokens } from "./config.js";
-import { getProvider } from "./providers/index.js";
+import { chamarCorrente, ENV_CHAVE } from "./providers/index.js";
 import { moderate } from "./moderation.js";
 import { getLedger, anonHash, dayKey } from "./ledger.js";
 import { blockReply, quotaReply, offlineReply, brokenReply, GREETINGS } from "./replies.js";
@@ -112,16 +112,19 @@ async function chat(request, env, ctx, cfg, cors) {
     );
   }
 
-  // ---- provider ---------------------------------------------------
-  const provider = getProvider(cfg.provider.id);
-  const result = await provider.chat({
+  // ---- corrente de provedores -------------------------------------
+  const result = await chamarCorrente({
+    corrente: cfg.provider.corrente,
+    env,
+    maxTokens: cfg.maxTokens,
     // O recurso cômico da vez entra aqui, não no arquivo do prompt: o modelo
     // não lembra da resposta anterior, então quem garante a variedade é a
     // rotação de fora.
     system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado, agressao, semFreio),
     messages: [...trimmed, { role: "user", content: message }],
-    config: cfg,
-    signal: AbortSignal.timeout(25000),
+    // 20s: o grok-4.5 leva 26s e por isso ficou fora da corrente. Esperar
+    // mais que isso num brinquedo de chat é pior que cair para o próximo.
+    signal: AbortSignal.timeout(20000),
   });
 
   if (!result.ok) {
@@ -149,6 +152,7 @@ async function chat(request, env, ctx, cfg, cors) {
       text: enxugar(result.text),
       kind: "ok",
       model: result.model,
+      provedor: result.provedor,
       usedFallback: Boolean(result.usedFallback),
       tentativas: result.tentativas || 1,
     },
@@ -167,9 +171,11 @@ async function health(env, cfg, cors) {
     {
       ok: !cfg.killSwitch,
       killSwitch: cfg.killSwitch,
-      provider: cfg.provider.id,
-      models: cfg.provider.models,
-      keyConfigured: Boolean(cfg.provider.apiKey),
+      corrente: cfg.provider.texto,
+      // Quais elos realmente podem responder. Elo sem chave é pulado em
+      // silêncio, então sem isto dá para achar que a corrente tem 11
+      // opções quando na prática tem 3.
+      provedoresComChave: [...new Set(cfg.provider.corrente.map((e) => e.provedor))].filter((p) => env[ENV_CHAVE[p]]),
       accounting: ledger.durable ? "durable-object" : "in-memory (degradado: contagem por isolate)",
       ...stats,
     },

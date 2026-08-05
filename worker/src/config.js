@@ -14,57 +14,80 @@ const list = (v) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-// Corrente padrão, ordenada por QUALIDADE DE RESPOSTA medida, não por
-// palpite. A ordem anterior punha o 8b em segundo por causa de uma amostra
-// boa — que depois se revelou copiada palavra por palavra de um exemplo do
-// prompt. Modelo pequeno entrega português quebrado e pergunta retórica no
-// lugar da piada, e resposta ruim num produto de humor é pior que resposta
-// nenhuma.
+// Corrente padrão. Saiu da bancada (`node bench/ranking.js`), não de palpite
+// — já erramos isso uma vez pondo um 8B em segundo lugar por causa de uma
+// amostra que depois se revelou copiada de um exemplo do prompt.
+//
+// A ordem ALTERNA PROVEDOR de propósito. O teto do free tier é por conta:
+// enfileirar cinco modelos da Groq esgota a Groq inteira e para tudo;
+// alternar Groq → Mistral → Groq → Cohere estica o dia várias vezes.
+//
+// Notas da bancada de 23 modelos:
+//   · grok-4.5 tirou a melhor nota (100) e ficou de FORA: 26 segundos por
+//     resposta. Num brinquedo de chat isso é pior que resposta mediana.
+//   · grok-4.20-non-reasoning tirou 88 em 1 segundo, é o melhor pago, e
+//     entra no fim — só funciona se houver XAI_API_KEY.
+//   · gemini-2.5-flash pontuou bem mas vinha truncando ("Puta que pariu, se
+//     esse era seu melhor" e parava). O modelo pensa por padrão e come o
+//     max_tokens; corrigido no adaptador.
+//   · ministral-8b (32) e zai-glm (vazio) ficaram de fora.
 const CORRENTE_PADRAO = [
-  "llama-3.3-70b-versatile", // melhor voz, solto no palavrão
-  "openai/gpt-oss-120b",     // escreve bem e xinga quando mandado
-  "qwen/qwen3.6-27b",        // surpreendeu: referência brasileira e timing
-  "openai/gpt-oss-20b",      // já trunca e divaga
-  "llama-3.1-8b-instant",    // último recurso: barato, disponível, fraco
+  "groq:llama-3.3-70b-versatile",
+  "mistral:mistral-large-latest",
+  "groq:openai/gpt-oss-120b",
+  "cohere:command-a-03-2025",
+  "mistral:mistral-small-latest",
+  "groq:openai/gpt-oss-20b",
+  "gemini:gemini-2.5-flash",
+  "groq:qwen/qwen3.6-27b",
+  "mistral:mistral-medium-2508",
+  "cerebras:gpt-oss-120b",
+  "xai:grok-4.20-0309-non-reasoning",
 ];
 
-function modelos(env) {
-  // GROQ_MODELS é a forma nova. GROQ_MODEL/GROQ_MODEL_FALLBACK continuam
-  // valendo para não quebrar quem já tinha configurado assim.
-  const lista = list(env.GROQ_MODELS);
-  if (lista.length) return dedup(lista);
-
-  const antigos = [env.GROQ_MODEL, env.GROQ_MODEL_FALLBACK].filter(Boolean);
-  if (antigos.length) return dedup([...antigos, ...CORRENTE_PADRAO]);
-
-  return CORRENTE_PADRAO.slice();
+// "provedor:modelo" -> { provedor, modelo }.
+// Sem prefixo assume groq, para não quebrar configuração antiga.
+function parseElo(s) {
+  const i = s.indexOf(":");
+  if (i < 0) return { provedor: "groq", modelo: s };
+  return { provedor: s.slice(0, i).trim(), modelo: s.slice(i + 1).trim() };
 }
 
 const dedup = (arr) => [...new Set(arr)];
 
+function corrente(env) {
+  // CLAUDIO_CORRENTE é a forma nova. GROQ_MODELS e GROQ_MODEL continuam
+  // valendo para não quebrar quem já tinha configurado assim.
+  const nova = list(env.CLAUDIO_CORRENTE);
+  if (nova.length) return dedup(nova);
+
+  const antiga = list(env.GROQ_MODELS);
+  if (antiga.length) return dedup(antiga);
+
+  const legado = [env.GROQ_MODEL, env.GROQ_MODEL_FALLBACK].filter(Boolean);
+  if (legado.length) return dedup([...legado, ...CORRENTE_PADRAO]);
+
+  return CORRENTE_PADRAO.slice();
+}
+
 export function readConfig(env) {
+  const eloTexto = corrente(env);
+
   return {
-    // ---- provider -------------------------------------------------
+    // ---- providers --------------------------------------------------
     provider: {
-      id: "groq",
-      apiKey: env.GROQ_API_KEY || "",
-      baseUrl: env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
-      // Corrente de modelos, em ordem de preferência. O teto do free tier da
-      // Groq é POR MODELO: quando o primeiro esgota a cota do dia, o
-      // seguinte ainda está inteiro. Com um modelo só, o produto morria no
-      // meio da tarde — foi o que aconteceu na bancada.
-      //
-      // A ordem é por VOZ, não por tamanho: num produto de humor, o modelo
-      // que aceita ser grosseiro em português vale mais que o modelo maior.
-      models: modelos(env),
+      corrente: eloTexto.map(parseElo),
+      texto: eloTexto,
     },
 
-    // ---- orçamento ------------------------------------------------
-    // Tetos reais do free tier da Groq: 30 rpm · 1.000 req/dia · 12k tpm.
-    // Tudo abaixo fica com margem de propósito: estourar o teto do provider
-    // devolve 429 pra Groq inteira, não só pra este usuário.
+    // ---- orçamento --------------------------------------------------
+    // O gargalo real do free tier não é requisição por dia e sim TOKEN por
+    // dia (~100k por modelo na Groq). Com ~1.400 tokens de prompt por
+    // chamada, cada modelo aguenta ~70 mensagens/dia. A corrente
+    // multi-provedor multiplica isso, mas o orçamento local segue
+    // conservador de propósito.
     maxTokens: num(env.CLAUDIO_MAX_TOKENS, 220),
-    dailyBudget: num(env.CLAUDIO_DAILY_BUDGET, 850),
+    dailyBudget: num(env.CLAUDIO_DAILY_BUDGET, 320),
     rpmBudget: num(env.CLAUDIO_RPM_BUDGET, 24),
     tpmBudget: num(env.CLAUDIO_TPM_BUDGET, 10000),
     ipPerMin: num(env.CLAUDIO_IP_PER_MIN, 4),
@@ -72,7 +95,7 @@ export function readConfig(env) {
     sessionPerDay: num(env.CLAUDIO_SESSION_PER_DAY, 60),
     historyTurns: num(env.CLAUDIO_HISTORY_TURNS, 6),
 
-    // ---- operação -------------------------------------------------
+    // ---- operação ---------------------------------------------------
     killSwitch: String(env.CLAUDIO_KILL_SWITCH || "off").toLowerCase() !== "off",
     allowedOrigins: list(env.ALLOWED_ORIGINS),
   };
@@ -80,7 +103,7 @@ export function readConfig(env) {
 
 // Estimativa grosseira de tokens para texto em português.
 // ~3,6 caracteres por token é conservador o bastante para o orçamento de TPM;
-// o número exato vem depois, do `usage` que a Groq devolve.
+// o número exato vem depois, do `usage` que a API devolve.
 export function estimateTokens(text) {
   return Math.ceil(String(text || "").length / 3.6);
 }

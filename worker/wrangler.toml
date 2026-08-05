@@ -10,12 +10,14 @@ rules = [
 ]
 
 [vars]
-# Corrente de modelos, em ordem de preferência. O teto do free tier da Groq
-# é POR MODELO, então cada elemento a mais é um dia inteiro de cota extra.
-# A ordem é por QUALIDADE DE RESPOSTA medida, não por palpite: modelo pequeno
-# entrega português quebrado e pergunta retórica no lugar da piada, e resposta
-# ruim num produto de humor é pior que resposta nenhuma. O 8b fecha a fila.
-GROQ_MODELS = "llama-3.3-70b-versatile,openai/gpt-oss-120b,qwen/qwen3.6-27b,openai/gpt-oss-20b,llama-3.1-8b-instant"
+# Corrente de provedores e modelos, em ordem de preferência. Formato
+# provedor:modelo. A ordem saiu de bench/ranking.js, e ALTERNA CONTA de
+# propósito: o teto do free tier é por conta, então enfileirar cinco modelos
+# da Groq esgota a Groq inteira e para tudo. Alternar estica o dia.
+#
+# Elo sem chave é pulado em silêncio — dá para deixar xai aí no fim e ele só
+# entra se alguém puser XAI_API_KEY (que é paga).
+CLAUDIO_CORRENTE = "groq:llama-3.3-70b-versatile,mistral:mistral-large-latest,groq:openai/gpt-oss-120b,cohere:command-a-03-2025,mistral:mistral-small-latest,groq:openai/gpt-oss-20b,gemini:gemini-2.5-flash,groq:qwen/qwen3.6-27b,mistral:mistral-medium-2508,cerebras:gpt-oss-120b,xai:grok-4.20-0309-non-reasoning"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 # Orçamento — abaixo do teto do free tier da Groq (30 rpm / 1.000 dia / 12k tpm).
