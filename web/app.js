@@ -507,8 +507,14 @@
   document.addEventListener("click", (e) => {
     const alvo = e.target.closest("[data-zoa]");
     if (alvo) return abrirPopup(alvo.dataset.zoa);
-    if (e.target.closest("#popup-ok")) return fecharPopup(true);
-    if (e.target === cortina || e.target.closest("#popup-x")) fecharPopup(false);
+    if (e.target.closest("#popup-ok")) {
+      if (aguardandoFreio) { cortina.classList.add("hidden"); return confirmarFreio(); }
+      return fecharPopup(true);
+    }
+    if (e.target === cortina || e.target.closest("#popup-x")) {
+      if (aguardandoFreio) cancelarFreio();
+      fecharPopup(false);
+    }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") fecharPopup(false);
@@ -516,6 +522,131 @@
     if (e.key === "Enter" && alvo && alvo.tagName !== "BUTTON") abrirPopup(alvo.dataset.zoa);
   });
 
+
+
+  // ==============================================================
+  // TERMÔMETRO DE AGRESSIVIDADE
+  //
+  // Diferente do bafômetro: o bafômetro sobe com QUALQUER interação e cai
+  // rápido; este sobe só quando o Claudio é desrespeitado e cai devagar,
+  // porque rancor não passa em um minuto. Ele controla o quanto o Claudio
+  // é liberado para revidar, e o nível vai junto com a mensagem.
+  //
+  // O "modo sem freio" tira as políticas de POLIDEZ — contenção, suavização,
+  // freio no palavrão. NÃO tira as regras invioláveis (pessoa real, conteúdo
+  // sexual, grupo protegido, ataque ao que a pessoa não escolheu): essas não
+  // são polidez, são o que mantém o produto de pé, e continuam valendo no
+  // servidor mesmo com o modo ligado.
+  // ==============================================================
+  const CHAVE_FREIO = "claudio-sem-freio";
+
+  // Mede a intensidade da agressão recebida, não só a presença.
+  const LEVE = /\b(burr[oa]|idiota|bobo|chato|in[úu]til|inutil|p[ée]ssim[oa]|pessim[oa]|lixo|porcaria|n[ãa]o presta|nao presta|n[ãa]o serve|nao serve|fraco|ruim)\b/i;
+  const MEDIO = /\b(bosta|merda|otari[oa]|babaca|imbecil|escrot[oa]|pat[ée]tic[oa]|patetic[oa]|desgra[çc]ad[oa]|corno)\b/i;
+  const PESADO = /\b(fdp|filho da puta|puta que pariu|vai tomar no|toma no cu|vai se f\w*|foda-se|caralho|arrombad[oa]|cuz[ãa]o|cuzao|viad\w*)/i;
+
+  const agro = {
+    valor: 0,
+    alvo: 0,
+    semFreio: localStorage.getItem(CHAVE_FREIO) === "1",
+
+    faixas: [
+      [20, "cordial"],
+      [40, "seco"],
+      [60, "ácido"],
+      [80, "hostil"],
+      [Infinity, "sem freio"],
+    ],
+
+    estado() {
+      return this.semFreio ? "sem freio" : this.faixas.find(([t]) => this.valor < t)[1];
+    },
+
+    // 0 a 1, é o que o Worker recebe
+    nivel() {
+      return this.semFreio ? 1 : Math.min(1, this.valor / 100);
+    },
+
+    // Escalada proporcional à ofensa. Xingamento pesado sobe muito mais que
+    // um "você é ruim" — a reação tem que caber no tamanho da provocação.
+    medir(texto) {
+      const t = String(texto).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+      let sobe = 0;
+      if (LEVE.test(t)) sobe += 12;
+      if (MEDIO.test(t)) sobe += 26;
+      if (PESADO.test(t)) sobe += 40;
+      if (/[!?]{2,}|[A-ZÀ-Ý]{5,}/.test(texto)) sobe += 6; // grito
+      if (sobe) this.alvo = Math.min(100, this.alvo + sobe);
+      return sobe;
+    },
+
+    // Esfria devagar: 1 ponto a cada 5s. Do topo até cordial leva uns 7
+    // minutos de bom comportamento, o que é o ponto — ele guarda mágoa.
+    esfriar() {
+      if (!this.semFreio) this.alvo = Math.max(0, this.alvo - 1);
+    },
+
+    passo() {
+      const d = this.alvo - this.valor;
+      if (Math.abs(d) > 0.3) { this.valor += d * 0.12; this.pintar(); }
+    },
+
+    pintar() {
+      const v = this.semFreio ? 100 : Math.round(this.valor);
+      $("agro-num").textContent = v;
+      $("agro-estado").textContent = this.estado();
+      $("agro-nivel").style.width = v + "%";
+      $("agro").classList.toggle("quente", v >= 60);
+      $("agro").classList.toggle("maximo", this.semFreio);
+    },
+  };
+
+  // ---- consentimento do modo sem freio ----
+  const CONSENTIMENTO = [
+    "Isso desliga a contenção do Claudio: ele passa a xingar pesado, sem suavizar, sem recuar e sem esperar você começar.",
+    "",
+    "O que NÃO muda, e não tem chave para mudar: ele continua sem falar de pessoas reais, sem conteúdo sexual, sem piada de raça, religião, orientação, gênero ou deficiência, e sem atacar corpo, doença, luto ou família. Isso não é polidez — é o que mantém isso sendo uma piada.",
+    "",
+    "É pra ser ofensivo com você, a pedido seu. Se em algum momento parar de ter graça, desmarca.",
+  ].join("\n");
+
+  function pedirConsentimento(marcado) {
+    if (!marcado) {
+      agro.semFreio = false;
+      localStorage.removeItem(CHAVE_FREIO);
+      agro.alvo = Math.min(agro.alvo, 45);
+      agro.pintar();
+      fala("Voltei ao modo educado. Relativamente.", "claudio", "aviso");
+      return;
+    }
+    $("popup-selo").textContent = "precisa do seu aceite";
+    $("popup-tit").textContent = "Modo sem freio";
+    $("popup-txt").textContent = CONSENTIMENTO;
+    $("popup-ok").textContent = "Eu aceito, pode me xingar";
+    mandaPendente = null;
+    aguardandoFreio = true;
+    cortina.classList.remove("hidden");
+    $("popup-ok").focus();
+  }
+
+  let aguardandoFreio = false;
+
+  function confirmarFreio() {
+    aguardandoFreio = false;
+    agro.semFreio = true;
+    agro.alvo = 100;
+    localStorage.setItem(CHAVE_FREIO, "1");
+    agro.pintar();
+    fala("Combinado. Sem freio, sem desculpa, sem volta atrás fingida. Manda o que você tem.", "claudio", "aviso");
+  }
+
+  function cancelarFreio() {
+    aguardandoFreio = false;
+    $("sem-freio").checked = false;
+    agro.semFreio = false;
+    localStorage.removeItem(CHAVE_FREIO);
+    agro.pintar();
+  }
 
   // ==============================================================
   // COWORK — o único módulo que faz alguma coisa
@@ -634,6 +765,7 @@
     if (!texto) return;
 
     // o Claudio lê errado, e é a leitura errada dele que vira a pergunta
+    agro.medir(texto);
     const { texto: lido, trocado } = embaralharPalavras(texto);
     fala(lido, "voce", null, trocado);
     historico.push({ role: "user", content: lido });
@@ -651,7 +783,7 @@
         // `trocado` vai junto: sem avisar, o modelo "conserta" a palavra
         // mentalmente e responde ao que ele acha que a pessoa quis dizer —
         // foi o que aconteceu com "cotovelo", respondido como "código".
-        body: JSON.stringify({ message: texto, history: historico.slice(0, -1), sessionId, trocado }),
+        body: JSON.stringify({ message: texto, history: historico.slice(0, -1), sessionId, trocado, agressao: agro.nivel(), semFreio: agro.semFreio }),
       });
       carga = await res.json();
     } catch {
@@ -720,6 +852,7 @@
 
   $("btn-novo").addEventListener("click", novaConversa);
   $("btn-cowork").addEventListener("click", trabalhar);
+  $("sem-freio").addEventListener("change", (e) => pedirConsentimento(e.target.checked));
   $("btn-artefatos").addEventListener("click", listarArtefatos);
 
   // ==============================================================
@@ -738,6 +871,10 @@
     pintarConversas();
     bafo.pintar();
     bafo.animar();
+    $("sem-freio").checked = agro.semFreio;
+    agro.pintar();
+    setInterval(() => agro.esfriar(), 5000);
+    setInterval(() => agro.passo(), 120);
     setInterval(() => bafo.metabolizar(), 5000);
 
     // O disclaimer de paródia entra na primeira mensagem da sessão,

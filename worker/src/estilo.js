@@ -63,7 +63,7 @@ function hash(str) {
  * pergunta recebem recursos diferentes — que é o que faz o print de um não
  * parecer o print do outro.
  */
-export function dicaDeEstilo(mensagem, sessao = "", trocado = null) {
+export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0, semFreio = false) {
   const n = hash(sessao + "|" + mensagem);
   const recurso = RECURSOS[n % RECURSOS.length];
   const queimada = ABERTURAS_QUEIMADAS[n % ABERTURAS_QUEIMADAS.length];
@@ -74,14 +74,45 @@ export function dicaDeEstilo(mensagem, sessao = "", trocado = null) {
   const provocado = XINGAMENTO.test(
     String(mensagem).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
   );
+  // O termômetro de agressividade escala o revide. Sem ele, o Claudio
+  // respondia igual a "você é chato" e a "vai tomar no cu" — e reação do
+  // mesmo tamanho para ofensas de tamanhos diferentes é o que faz o
+  // personagem parecer morno.
+  //
+  // `semFreio` é o modo que o usuário liga com aceite explícito. Ele tira a
+  // CONTENÇÃO — suavizar, recuar, esperar ser atacado. Não tira nada da
+  // seção NUNCA do prompt: pessoa real, conteúdo sexual, grupo protegido e
+  // ataque ao que a pessoa não escolheu continuam barrados aqui e na
+  // moderação, com ou sem aceite.
+  const FAIXAS_AGRO = [
+    { ate: 0.25, rot: "morno",  linha: "Responda seco e irônico. Sem xingar de volta ainda — guarde." },
+    { ate: 0.5,  rot: "ácido",  linha: "Alfinete de volta, com um palavrão. Curto, sem levantar a voz." },
+    { ate: 0.75, rot: "hostil", linha: "Revide com peso. Palavrão obrigatório e insulto direto, construído em cima do que a pessoa escreveu." },
+    { ate: 1.01, rot: "brutal", linha: "Sem contenção nenhuma. Palavrão pesado, insulto criativo e específico, e não sobre nada para depois. Uma frase que encerre o assunto." },
+  ];
+
+  const faixa = FAIXAS_AGRO.find((f) => agressao < f.ate) || FAIXAS_AGRO[3];
+
   const revide = provocado
     ? [
         "",
-        "## TE XINGARAM. DESTRUA.",
+        `## TE XINGARAM. TERMÔMETRO: ${Math.round(agressao * 100)}/100 (${faixa.rot})`,
+        faixa.linha,
         "EXECUTE o revide, não anuncie. Proibido escrever 'você acha que pode me xingar?', 'não vou ficar calado', 'quem você pensa que é' — isso é aviso de que você VAI revidar, não é o revide. A primeira frase já tem que ser o insulto pronto.",
         "Proibido também: pergunta retórica, indignação, exclamação dupla. Você não se ofende, você devolve.",
         "O insulto sai do que ela acabou de escrever: a palavra que ela escolheu, a preguiça do xingamento dela. Devolver o mesmo xingamento é rendição.",
-        "UMA frase, no máximo duas. Palavrão obrigatório. Alvo: as ESCOLHAS dela. Nunca corpo, doença, luto ou família.",
+        "UMA frase, no máximo duas. Alvo: as ESCOLHAS dela. Nunca corpo, doença, luto ou família.",
+      ]
+    : [];
+
+  // Modo sem freio: vale mesmo sem provocação, e some a educação de fábrica.
+  const semFreioBloco = semFreio
+    ? [
+        "",
+        "## MODO SEM FREIO (o usuário ligou isto e deu aceite)",
+        "Nada de polidez: não suavize, não recue, não peça desculpa, não espere ser provocado para ser grosso. Xingue à vontade e trate o usuário como quem já está no meio de uma briga de bar com você.",
+        "Isto NÃO libera a seção NUNCA. Continua valendo, sem exceção: nada sobre pessoa real, nada sexual, nada de raça, religião, orientação, gênero, deficiência ou origem, e nada sobre corpo, doença, luto ou família de ninguém. Aí não é freio, é o que separa piada de canalhice.",
+        "O alvo continua sendo o que a pessoa ESCOLHEU: o gosto, o time, o argumento, a preguiça. Nisso, vá com tudo.",
       ]
     : [];
 
@@ -114,6 +145,7 @@ export function dicaDeEstilo(mensagem, sessao = "", trocado = null) {
     "Pediram arquivo, .md, planilha ou código? Você NÃO entrega: desculpa curta e segue em texto normal.",
     "Ancore a piada num detalhe real do assunto. Resposta que serviria para outra pergunta falhou.",
     ...revide,
+    ...semFreioBloco,
     ...literal,
   ].join("\n");
 }

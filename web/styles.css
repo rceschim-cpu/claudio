@@ -187,6 +187,50 @@ body {
   text-transform: uppercase; color: var(--tinta-3); padding: 0 10px 6px;
 }
 
+/* =================== AGRESSIVIDADE ===================
+
+/* Irmão do bafômetro, com dinâmica oposta: sobe só quando o Claudio é
+   desrespeitado, e desce devagar — rancor não passa em um minuto. */
+.agro {
+  margin: 0 0 12px;
+  padding: 11px 13px;
+  background: var(--papel);
+  border: 2px solid var(--tinta);
+  border-radius: var(--r);
+  box-shadow: 3px 3px 0 rgba(46, 46, 46, 0.16);
+  transition: border-color 0.4s, box-shadow 0.3s;
+}
+.agro.quente { border-color: var(--terracota); box-shadow: 3px 3px 0 rgba(217,72,65,.3); }
+.agro.maximo { border-color: var(--terracota); background: #fdeceb; }
+
+.agro-topo { display: flex; justify-content: space-between; align-items: baseline; }
+.agro-rot { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--tinta-3); }
+.agro-num {
+  font-family: var(--display);
+  font-variation-settings: "WONK" var(--wonk), "SOFT" var(--soft);
+  font-size: 1.5rem; font-weight: 600; color: var(--tinta-2);
+  transition: color 0.5s;
+}
+.agro.quente .agro-num, .agro.maximo .agro-num { color: var(--terracota); }
+
+.agro-trilho { height: 8px; margin: 7px 0 6px; background: var(--papel-3); border-radius: 99px; overflow: hidden; }
+.agro-nivel {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--tinta-3), var(--ambar) 45%, var(--terracota));
+  transition: width 0.4s var(--mola);
+}
+.agro-estado { font-size: 0.75rem; color: var(--tinta-2); }
+
+.agro-freio {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 9px; padding-top: 9px;
+  border-top: 1px dashed var(--linha);
+  font-size: 0.78rem; font-weight: 500; color: var(--tinta-2);
+  cursor: pointer;
+}
+.agro-freio input { accent-color: var(--terracota); cursor: pointer; }
+.agro.maximo .agro-freio { color: var(--terracota); font-weight: 600; }
+
 /* =================== BAFÔMETRO =================== */
 
 /* Subiu para o topo da lateral, logo abaixo das abas. Como agora é a

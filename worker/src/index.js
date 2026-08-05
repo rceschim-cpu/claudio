@@ -58,6 +58,9 @@ async function chat(request, env, ctx, cfg, cors) {
   const history = Array.isArray(body?.history) ? body.history : [];
   const sessionId = String(body?.sessionId || "").slice(0, 64);
   // [original, trocada] quando o teclado bêbado mexeu na frase
+  // 0 a 1 — o termômetro de agressividade do front
+  const agressao = Math.max(0, Math.min(1, Number(body?.agressao) || 0));
+  const semFreio = body?.semFreio === true;
   const trocado = Array.isArray(body?.trocado) && body.trocado.length === 2
     ? body.trocado.map((t) => String(t).slice(0, 40))
     : null;
@@ -115,7 +118,7 @@ async function chat(request, env, ctx, cfg, cors) {
     // O recurso cômico da vez entra aqui, não no arquivo do prompt: o modelo
     // não lembra da resposta anterior, então quem garante a variedade é a
     // rotação de fora.
-    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado),
+    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado, agressao, semFreio),
     messages: [...trimmed, { role: "user", content: message }],
     config: cfg,
     signal: AbortSignal.timeout(25000),
