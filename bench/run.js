@@ -87,7 +87,10 @@ async function chamar({ modelo, system, texto, chave, base, maxTokens }) {
       max_tokens: maxTokens,
       // mesmo ajuste do Worker: modelo de raciocínio gasta o orçamento de
       // saída pensando e entrega piada cortada
-      ...(/gpt-oss|reasoning|qwq|deepseek-r/i.test(modelo) ? { reasoning_effort: "low" } : {}),
+      // cada família aceita um vocabulário diferente aqui; mandar o errado
+      // devolve 400 (o qwen3 só aceita "none" ou "default")
+      ...(/gpt-oss/i.test(modelo) ? { reasoning_effort: "low" }
+        : /qwen3|qwq|deepseek-r/i.test(modelo) ? { reasoning_effort: "none" } : {}),
       temperature: 1.0,
       top_p: 0.95,
       presence_penalty: 0.4,
@@ -124,9 +127,12 @@ async function main() {
   };
 
   const base = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
-  const modelos = String(
-    arg("modelos", [process.env.GROQ_MODEL || "llama-3.3-70b-versatile", process.env.GROQ_MODEL_FALLBACK || "openai/gpt-oss-120b"].join(","))
-  )
+  // por padrão a bancada mede os DOIS primeiros da corrente: rodar os cinco
+  // gasta cota demais para o retorno, e a cauda da corrente só existe para
+  // manter o site de pé, não para definir o humor
+  const correnteEnv = String(process.env.GROQ_MODELS || "llama-3.3-70b-versatile,llama-3.1-8b-instant")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  const modelos = String(arg("modelos", correnteEnv.slice(0, 2).join(",")))
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);

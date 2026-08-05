@@ -7,21 +7,38 @@
 
 /** @typedef {{role:"user"|"assistant", content:string}} Turn */
 
+// Modelos de raciocínio gastam o orçamento de SAÍDA pensando, e a piada sai
+// cortada no meio. Cada família aceita um vocabulário diferente para baixar
+// isso: mandar o valor errado devolve 400 e derruba o modelo da corrente à
+// toa (o qwen3 rejeita "low" e só aceita "none"/"default").
+function esforcoDeRaciocinio(modelId) {
+  if (/gpt-oss/i.test(modelId)) return { reasoning_effort: "low" };
+  if (/qwen3|qwq|deepseek-r/i.test(modelId)) return { reasoning_effort: "none" };
+  return {};
+}
+
 export const groq = {
   id: "groq",
   label: "Groq",
 
   /**
+   * Percorre a corrente de modelos até um responder.
+   *
+   * A corrente existe porque o teto do free tier da Groq é POR MODELO, não
+   * por conta: quando o llama-3.3 esgota a cota do dia, os outros continuam
+   * inteiros. Com um modelo só, o produto morria no meio da tarde.
+   *
    * @returns {Promise<{
    *   ok: boolean, text?: string, model?: string, usedFallback?: boolean,
-   *   usage?: {in:number,out:number},
+   *   tentativas?: number, usage?: {in:number,out:number},
    *   error?: "rate_limited"|"unauthorized"|"unavailable"|"bad_request"|"timeout",
    *   retryAfter?: number, detail?: string
    * }>}
    */
   async chat({ system, messages, config, signal }) {
-    const { apiKey, baseUrl, model, fallbackModel } = config.provider;
+    const { apiKey, baseUrl, models } = config.provider;
     if (!apiKey) return { ok: false, error: "unauthorized", detail: "GROQ_API_KEY ausente" };
+    if (!models.length) return { ok: false, error: "bad_request", detail: "nenhum modelo configurado" };
 
     const attempt = async (modelId) => {
       let res;
@@ -36,14 +53,10 @@ export const groq = {
             model: modelId,
             messages: [{ role: "system", content: system }, ...messages],
             max_tokens: config.maxTokens,
-            // gpt-oss é modelo de raciocínio: os tokens de reasoning saem do
-            // MESMO orçamento de saída. Sem isto ele gasta os 220 pensando e
-            // a piada sai cortada no meio — 30 de 30 respostas truncadas na
-            // bancada. A piada não precisa de raciocínio; precisa de timing.
-            ...(/gpt-oss|reasoning|qwq|deepseek-r/i.test(modelId) ? { reasoning_effort: "low" } : {}),
+            ...esforcoDeRaciocinio(modelId),
             // Temperatura alta de propósito: o produto é humor, e resposta
             // previsível não é engraçada duas vezes.
-            temperature: 1.0,
+            temperature: 1.05,
             top_p: 0.95,
             presence_penalty: 0.4,
           }),
@@ -56,18 +69,13 @@ export const groq = {
 
       if (res.status === 429) {
         const ra = Number(res.headers.get("retry-after"));
-        return {
-          ok: false,
-          error: "rate_limited",
-          retryAfter: Number.isFinite(ra) ? ra : undefined,
-          detail: await safeText(res),
-        };
+        return { ok: false, error: "rate_limited", retryAfter: Number.isFinite(ra) ? ra : undefined };
       }
       if (res.status === 401 || res.status === 403) {
         return { ok: false, error: "unauthorized", detail: await safeText(res) };
       }
       if (res.status === 400 || res.status === 404) {
-        // Modelo desativado/renomeado cai aqui — vale tentar o fallback.
+        // Modelo desativado, renomeado ou com parâmetro que ele não aceita.
         return { ok: false, error: "bad_request", detail: await safeText(res) };
       }
       if (!res.ok) {
@@ -76,6 +84,9 @@ export const groq = {
 
       const data = await res.json().catch(() => null);
       const text = data?.choices?.[0]?.message?.content;
+      // Resposta vazia acontece de verdade (o gpt-oss-20b devolveu vazio num
+      // teste). Vale como falha, para a corrente seguir em vez de entregar
+      // uma bolha em branco.
       if (!text || !text.trim()) {
         return { ok: false, error: "unavailable", detail: "resposta vazia" };
       }
@@ -90,24 +101,23 @@ export const groq = {
       };
     };
 
-    const primary = await attempt(model);
-    if (primary.ok) return { ...primary, usedFallback: false };
+    let ultimoRate = null;
+    let ultimo = null;
 
-    // 401 é credencial: trocar de modelo não resolve.
-    if (primary.error === "unauthorized") return primary;
-    if (!fallbackModel || fallbackModel === model) return primary;
+    for (let i = 0; i < models.length; i++) {
+      const r = await attempt(models[i]);
+      if (r.ok) return { ...r, usedFallback: i > 0, tentativas: i + 1 };
 
-    // 429 TAMBÉM vale tentar no fallback. Os limites do free tier da Groq são
-    // POR MODELO, não por conta — na bancada o llama estourou a cota diária
-    // dele e devolveu 429 em 27 chamadas seguidas enquanto o gpt-oss
-    // respondeu as 30 sem falha. Antes o código desistia no 429 achando que
-    // era da conta, o que derrubaria o site no meio do dia com o outro modelo
-    // vivo do lado.
-    const backup = await attempt(fallbackModel);
-    if (backup.ok) return { ...backup, usedFallback: true };
+      // 401 é credencial: os outros modelos vão falhar igual, não insista.
+      if (r.error === "unauthorized") return r;
 
-    // Os dois no teto: aí sim é hora da mensagem de cota.
-    return primary.error === "rate_limited" ? primary : backup.error === "rate_limited" ? backup : primary;
+      if (r.error === "rate_limited") ultimoRate = r;
+      ultimo = r;
+    }
+
+    // Corrente inteira caída. Se algum foi 429, essa é a explicação honesta
+    // e é o que vira a mensagem de cota em personagem.
+    return ultimoRate || ultimo || { ok: false, error: "unavailable" };
   },
 };
 

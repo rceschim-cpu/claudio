@@ -174,14 +174,39 @@ npm run bench -- --modelos llama-3.3-70b-versatile
 
 ---
 
-## Trocar de modelo ou de provider
+## A corrente de modelos
 
-Modelo é variável de ambiente:
+O teto do free tier da Groq é **por modelo**, não por conta. A bancada provou
+isso na marra: o `llama-3.3` devolveu 429 em 27 chamadas seguidas enquanto o
+`gpt-oss` respondeu as 30 sem falhar.
+
+Por isso o Worker percorre uma corrente até alguém responder. Cada modelo a
+mais é um dia extra de funcionamento:
 
 ```
-GROQ_MODEL=llama-3.3-70b-versatile
-GROQ_MODEL_FALLBACK=openai/gpt-oss-120b
+GROQ_MODELS=llama-3.3-70b-versatile,llama-3.1-8b-instant,openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.6-27b
 ```
+
+A ordem é por **voz, não por tamanho**: num produto de humor, o modelo que
+aceita ser grosseiro em português vale mais que o modelo maior e comedido.
+Os dois primeiros são da família Llama porque são os que xingam; a cauda
+existe para manter o site de pé, não para definir o tom.
+
+Regras da corrente:
+
+- **429 continua** — é cota daquele modelo, não da conta.
+- **Resposta vazia continua** — o `gpt-oss-20b` já devolveu vazio; entregar
+  bolha em branco é pior do que tentar o próximo.
+- **401 para na hora** — chave errada não melhora trocando de modelo.
+- Só quando a corrente inteira cai é que aparece a piada de cota.
+
+`GET /health` lista a corrente. Cada resposta traz `model` e `tentativas`,
+então dá para ver quantos degraus foram necessários.
+
+`GROQ_MODEL`/`GROQ_MODEL_FALLBACK` do formato antigo continuam funcionando:
+viram o topo da corrente, com o padrão logo atrás como reserva.
+
+## Trocar de provider
 
 Provider novo (xAI, por exemplo) é um arquivo em `worker/src/providers/` que
 implementa o contrato documentado em `worker/src/providers/index.js`, mais uma

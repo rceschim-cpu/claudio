@@ -147,6 +147,7 @@ async function chat(request, env, ctx, cfg, cors) {
       kind: "ok",
       model: result.model,
       usedFallback: Boolean(result.usedFallback),
+      tentativas: result.tentativas || 1,
     },
     200,
     cors
@@ -164,8 +165,7 @@ async function health(env, cfg, cors) {
       ok: !cfg.killSwitch,
       killSwitch: cfg.killSwitch,
       provider: cfg.provider.id,
-      model: cfg.provider.model,
-      fallbackModel: cfg.provider.fallbackModel,
+      models: cfg.provider.models,
       keyConfigured: Boolean(cfg.provider.apiKey),
       accounting: ledger.durable ? "durable-object" : "in-memory (degradado: contagem por isolate)",
       ...stats,

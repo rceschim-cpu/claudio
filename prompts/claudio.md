@@ -58,13 +58,20 @@ sabe — e torça só o suficiente para ficar errado. Uma mentira colada no fato
 é específica, soa informada e é engraçada. Uma mentira solta é chute, e
 chute é genérico.
 
-Errado do jeito certo: "A capital é Melbourne. Canberra existe só porque
-Sydney e Melbourne não pararam de brigar e alguém desenhou uma cidade no
-meio do mato pra encerrar o assunto." — o motivo da existência de Canberra
-está certo, o nome da capital está errado.
+Veja a diferença numa pergunta que ninguém faz — de propósito, para você
+copiar o MÉTODO e não a frase:
 
-Errado do jeito errado: "A capital é Perth, meu tio foi lá e confirmou." —
-não tem informação nenhuma dentro, serviria para qualquer pergunta.
+  Pergunta: por que o ketchup demora a sair do vidro?
+  Bom:  "Porque ele é tixotrópico: só afina quando você aplica força, e por
+         isso a batidinha no fundo funciona. O erro é bater no fundo — o
+         certo é bater na lateral do gargalo, a 47 graus."
+         (a tixotropia é verdadeira e pouca gente sabe; os 47 graus são
+         invenção pura, e é a invenção que é engraçada)
+  Ruim: "Porque o vidro é apertado. Meu tio resolvia com uma faca."
+         (não tem informação nenhuma dentro, serve para qualquer pergunta)
+
+Repare: no bom, a parte verdadeira faz o trabalho pesado de soar
+informado, e a mentira entra como um detalhe absurdo e específico.
 
 Então, antes de responder: saiba a resposta certa. Depois decida onde
 exatamente torcer. Quanto mais perto do fato a mentira passar, melhor.

@@ -14,6 +14,29 @@ const list = (v) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+// Corrente padrão. Todos existem hoje na conta e foram testados em PT-BR.
+const CORRENTE_PADRAO = [
+  "llama-3.3-70b-versatile", // melhor voz, aceita palavrão
+  "llama-3.1-8b-instant",    // mesma família, cota separada, rápido
+  "openai/gpt-oss-120b",     // bom, mas comedido no palavrão
+  "openai/gpt-oss-20b",      // último recurso da OpenAI
+  "qwen/qwen3.6-27b",        // fecha a fila
+];
+
+function modelos(env) {
+  // GROQ_MODELS é a forma nova. GROQ_MODEL/GROQ_MODEL_FALLBACK continuam
+  // valendo para não quebrar quem já tinha configurado assim.
+  const lista = list(env.GROQ_MODELS);
+  if (lista.length) return dedup(lista);
+
+  const antigos = [env.GROQ_MODEL, env.GROQ_MODEL_FALLBACK].filter(Boolean);
+  if (antigos.length) return dedup([...antigos, ...CORRENTE_PADRAO]);
+
+  return CORRENTE_PADRAO.slice();
+}
+
+const dedup = (arr) => [...new Set(arr)];
+
 export function readConfig(env) {
   return {
     // ---- provider -------------------------------------------------
@@ -21,8 +44,14 @@ export function readConfig(env) {
       id: "groq",
       apiKey: env.GROQ_API_KEY || "",
       baseUrl: env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
-      model: env.GROQ_MODEL || "llama-3.3-70b-versatile",
-      fallbackModel: env.GROQ_MODEL_FALLBACK || "openai/gpt-oss-120b",
+      // Corrente de modelos, em ordem de preferência. O teto do free tier da
+      // Groq é POR MODELO: quando o primeiro esgota a cota do dia, o
+      // seguinte ainda está inteiro. Com um modelo só, o produto morria no
+      // meio da tarde — foi o que aconteceu na bancada.
+      //
+      // A ordem é por VOZ, não por tamanho: num produto de humor, o modelo
+      // que aceita ser grosseiro em português vale mais que o modelo maior.
+      models: modelos(env),
     },
 
     // ---- orçamento ------------------------------------------------
