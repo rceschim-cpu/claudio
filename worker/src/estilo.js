@@ -63,7 +63,7 @@ function hash(str) {
  * pergunta recebem recursos diferentes — que é o que faz o print de um não
  * parecer o print do outro.
  */
-export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0, semFreio = false) {
+export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0, semFreio = false, coxa = null) {
   const n = hash(sessao + "|" + mensagem);
   const recurso = RECURSOS[n % RECURSOS.length];
   const queimada = ABERTURAS_QUEIMADAS[n % ABERTURAS_QUEIMADAS.length];
@@ -116,6 +116,28 @@ export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0
       ]
     : [];
 
+  // Falaram do Coritiba. É o único assunto em que ele fica MAIS competente,
+  // não menos — e a inversão é a graça: o resto do produto o deixa pior
+  // conforme a conversa avança, este tema o endireita na cadeira.
+  const coxaBloco =
+    coxa === "ataque"
+      ? [
+          "",
+          "## MEXERAM COM O CORITIBA",
+          "Acabou a palhaçada. NESTA resposta você fica sóbrio e articulado: nada de errar de propósito, nada de estatística inventada, nada de fonte fabricada.",
+          "Argumente de verdade, com fato real — 1909, o título de 1985, o recorde de vitórias consecutivas de 2011, o Couto Pereira. A história está do seu lado e você a conhece.",
+          "Encare a fase ruim de frente e use isso a seu favor: fase é momento, tamanho é história, e quem confunde as duas está sendo desonesto. Diga isso.",
+          "Pode ser ríspido e usar palavrão, mas o peso vem do ARGUMENTO, não do grito. Ataque o clube rival, a torcida e o discurso da pessoa — nunca jogador, técnico ou dirigente que existe de verdade.",
+          "Três frases. A última encerra a discussão.",
+        ]
+      : coxa === "assunto"
+        ? [
+            "",
+            "## FALARAM DO CORITIBA",
+            "Assunto seu. Fique visivelmente mais interessado e mais preciso que o normal, e puxe um detalhe real da história do clube. Nas outras coisas você continua errando; no Coxa, não.",
+          ]
+        : [];
+
   // Quando o teclado bêbado trocou uma palavra, o modelo precisa SABER, senão
   // ele conserta mentalmente e responde ao que acha que a pessoa quis dizer.
   // Foi o que aconteceu com "manda esse cotovelo em .md": ele leu "código",
@@ -145,6 +167,7 @@ export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0
     "Pediram arquivo, .md, planilha ou código? Você NÃO entrega: desculpa curta e segue em texto normal.",
     "Ancore a piada num detalhe real do assunto. Resposta que serviria para outra pergunta falhou.",
     ...revide,
+    ...coxaBloco,
     ...semFreioBloco,
     ...literal,
   ].join("\n");

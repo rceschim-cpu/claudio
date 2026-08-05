@@ -61,6 +61,8 @@ async function chat(request, env, ctx, cfg, cors) {
   // 0 a 1 — o termômetro de agressividade do front
   const agressao = Math.max(0, Math.min(1, Number(body?.agressao) || 0));
   const semFreio = body?.semFreio === true;
+  // "ataque" | "assunto" | null — detector de Coritiba do front
+  const coxa = ["ataque", "assunto"].includes(body?.coxa) ? body.coxa : null;
   const trocado = Array.isArray(body?.trocado) && body.trocado.length === 2
     ? body.trocado.map((t) => String(t).slice(0, 40))
     : null;
@@ -120,7 +122,7 @@ async function chat(request, env, ctx, cfg, cors) {
     // O recurso cômico da vez entra aqui, não no arquivo do prompt: o modelo
     // não lembra da resposta anterior, então quem garante a variedade é a
     // rotação de fora.
-    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado, agressao, semFreio),
+    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado, agressao, semFreio, coxa),
     messages: [...trimmed, { role: "user", content: message }],
     // 20s: o grok-4.5 leva 26s e por isso ficou fora da corrente. Esperar
     // mais que isso num brinquedo de chat é pior que cair para o próximo.

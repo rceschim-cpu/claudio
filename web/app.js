@@ -765,6 +765,15 @@
     if (!texto) return;
 
     // o Claudio lê errado, e é a leitura errada dele que vira a pergunta
+    // O Coxa é o único assunto que mexe nos DOIS medidores, em direções
+    // opostas: ele fica bravo E fica sóbrio, porque endireita na cadeira
+    // para a discussão. Contraria o resto do produto de propósito.
+    const coxa = (window.CLAUDIO_COXA || {}).detectar?.(texto) || null;
+    if (coxa === "ataque") {
+      agro.alvo = Math.min(100, agro.alvo + 34);
+      bafo.alvo = Math.max(0.08, bafo.alvo - 0.3);   // sobriedade de combate
+      bafo.valor = Math.min(bafo.valor, bafo.alvo + 0.1);
+    }
     agro.medir(texto);
     const { texto: lido, trocado } = embaralharPalavras(texto);
     fala(lido, "voce", null, trocado);
@@ -783,7 +792,7 @@
         // `trocado` vai junto: sem avisar, o modelo "conserta" a palavra
         // mentalmente e responde ao que ele acha que a pessoa quis dizer —
         // foi o que aconteceu com "cotovelo", respondido como "código".
-        body: JSON.stringify({ message: texto, history: historico.slice(0, -1), sessionId, trocado, agressao: agro.nivel(), semFreio: agro.semFreio }),
+        body: JSON.stringify({ message: texto, history: historico.slice(0, -1), sessionId, trocado, agressao: agro.nivel(), semFreio: agro.semFreio, coxa }),
       });
       carga = await res.json();
     } catch {
