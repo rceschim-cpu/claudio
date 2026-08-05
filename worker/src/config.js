@@ -14,13 +14,18 @@ const list = (v) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-// Corrente padrão. Todos existem hoje na conta e foram testados em PT-BR.
+// Corrente padrão, ordenada por QUALIDADE DE RESPOSTA medida, não por
+// palpite. A ordem anterior punha o 8b em segundo por causa de uma amostra
+// boa — que depois se revelou copiada palavra por palavra de um exemplo do
+// prompt. Modelo pequeno entrega português quebrado e pergunta retórica no
+// lugar da piada, e resposta ruim num produto de humor é pior que resposta
+// nenhuma.
 const CORRENTE_PADRAO = [
-  "llama-3.3-70b-versatile", // melhor voz, aceita palavrão
-  "llama-3.1-8b-instant",    // mesma família, cota separada, rápido
-  "openai/gpt-oss-120b",     // bom, mas comedido no palavrão
-  "openai/gpt-oss-20b",      // último recurso da OpenAI
-  "qwen/qwen3.6-27b",        // fecha a fila
+  "llama-3.3-70b-versatile", // melhor voz, solto no palavrão
+  "openai/gpt-oss-120b",     // escreve bem e xinga quando mandado
+  "qwen/qwen3.6-27b",        // surpreendeu: referência brasileira e timing
+  "openai/gpt-oss-20b",      // já trunca e divaga
+  "llama-3.1-8b-instant",    // último recurso: barato, disponível, fraco
 ];
 
 function modelos(env) {

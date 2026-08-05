@@ -12,9 +12,10 @@ rules = [
 [vars]
 # Corrente de modelos, em ordem de preferência. O teto do free tier da Groq
 # é POR MODELO, então cada elemento a mais é um dia inteiro de cota extra.
-# A ordem é por voz, não por tamanho: modelo que aceita ser grosseiro em
-# português vale mais aqui do que modelo grande e comedido.
-GROQ_MODELS = "llama-3.3-70b-versatile,llama-3.1-8b-instant,openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.6-27b"
+# A ordem é por QUALIDADE DE RESPOSTA medida, não por palpite: modelo pequeno
+# entrega português quebrado e pergunta retórica no lugar da piada, e resposta
+# ruim num produto de humor é pior que resposta nenhuma. O 8b fecha a fila.
+GROQ_MODELS = "llama-3.3-70b-versatile,openai/gpt-oss-120b,qwen/qwen3.6-27b,openai/gpt-oss-20b,llama-3.1-8b-instant"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 # Orçamento — abaixo do teto do free tier da Groq (30 rpm / 1.000 dia / 12k tpm).
