@@ -189,24 +189,29 @@ body {
 
 /* =================== BAFÔMETRO =================== */
 
+/* Subiu para o topo da lateral, logo abaixo das abas. Como agora é a
+   primeira coisa que se vê, ganhou peso: borda cheia, fundo próprio e
+   número grande. É a mecânica central do produto — não podia estar
+   escondido no rodapé. */
 .bafo {
-  margin-top: auto;
-  padding: 11px 12px;
+  margin: 0 0 12px;
+  padding: 12px 13px;
   background: var(--papel);
-  border: 1px solid var(--linha);
+  border: 2px solid var(--tinta);
   border-radius: var(--r);
+  box-shadow: 3px 3px 0 rgba(46, 46, 46, 0.16);
   cursor: pointer;
-  transition: border-color 0.4s, transform 0.15s var(--mola);
+  transition: border-color 0.4s, box-shadow 0.2s, transform 0.15s var(--mola);
 }
-.bafo:hover { transform: translateY(-1px); border-color: var(--tinta-3); }
-.bafo.alto { border-color: var(--terracota); }
+.bafo:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgba(46,46,46,.22); }
+.bafo.alto { border-color: var(--terracota); box-shadow: 3px 3px 0 rgba(217,72,65,.3); }
 
 .bafo-topo { display: flex; justify-content: space-between; align-items: baseline; }
 .bafo-rot { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--tinta-3); }
 .bafo-num {
   font-family: var(--display);
   font-variation-settings: "WONK" var(--wonk), "SOFT" var(--soft);
-  font-size: 1.15rem; font-weight: 600;
+  font-size: 1.5rem; font-weight: 600;
   color: var(--verde);
   transition: color 0.6s;
 }
@@ -214,7 +219,7 @@ body {
 
 .bafo-trilho {
   position: relative;
-  height: 6px; margin: 7px 0 6px;
+  height: 8px; margin: 7px 0 6px;
   background: var(--papel-3); border-radius: 99px; overflow: visible;
 }
 .bafo-nivel {
@@ -339,6 +344,28 @@ body {
 }
 
 .fala.aviso .fala-txt { color: var(--terracota); font-weight: 500; }
+
+/* o Cowork trabalhou e entregou um arquivo que ninguém pediu */
+.fala.trabalho .fala-txt { color: var(--verde); font-weight: 500; }
+
+.arquivo {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 10px; padding: 9px 13px;
+  font: inherit; font-size: 0.85rem;
+  background: var(--papel-2);
+  border: 2px solid var(--tinta);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 var(--tinta);
+  cursor: pointer;
+  transition: transform 0.12s var(--mola), box-shadow 0.12s;
+}
+.arquivo:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--tinta); }
+.arquivo:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--tinta); }
+.arquivo-nome { font-family: var(--mono, monospace); font-weight: 600; }
+.arquivo-abrir { margin-left: auto; color: var(--tinta-3); font-size: 0.78rem; }
+
+/* o conteúdo do arquivo no popup precisa preservar quebras de linha */
+#popup-txt { white-space: pre-wrap; }
 
 /* o café: o momento em que o medidor despenca e a tela volta a ficar reta */
 .fala.cafe .fala-txt {

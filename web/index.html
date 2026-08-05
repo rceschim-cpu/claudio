@@ -44,28 +44,6 @@
       <button class="aba travada" data-zoa="code">&lt;/&gt; Code <i class="cadeado">🔒</i></button>
     </div>
 
-    <button class="novo" id="btn-novo">＋ Novo</button>
-
-    <nav class="menu">
-      <button class="item" data-zoa="projetos"><i>🗃</i> Projetos <small>(3 parados)</small></button>
-      <button class="item" data-zoa="artefatos"><i>🏺</i> Artefatos</button>
-      <button class="item" data-zoa="programado"><i>🕐</i> Programado</button>
-      <button class="item" data-zoa="skills"><i>🎓</i> Skills</button>
-      <button class="item" data-zoa="personalizar"><i>🎛</i> Personalizar</button>
-    </nav>
-
-    <div class="secao secao-conversas">
-      <span class="secao-tit">Conversas e desculpas</span>
-      <div id="lista-conversas" class="lista-conversas"></div>
-    </div>
-
-    <div class="secao">
-      <span class="secao-tit">Fixado</span>
-      <button class="item leve" data-zoa="fixado"><i>📌</i> Desculpa pro chefe (rascunho)</button>
-      <button class="item leve" data-zoa="fixado"><i>📌</i> Plano de dieta (2019)</button>
-      <button class="item leve" data-zoa="fixado"><i>📌</i> Ideia de app milionário</button>
-    </div>
-
     <!-- ===== BAFÔMETRO — o medidor que entorta a interface ===== -->
     <div class="bafo" id="bafo" data-zoa="bafometro" role="button" tabindex="0">
       <div class="bafo-topo">
@@ -74,6 +52,21 @@
       </div>
       <div class="bafo-trilho"><div class="bafo-nivel" id="bafo-nivel"></div><i class="bafo-limite" title="limite pra programar: 0,34"></i></div>
       <span class="bafo-estado" id="bafo-estado">sóbrio (suspeito)</span>
+    </div>
+
+    <button class="novo" id="btn-novo">＋ Novo</button>
+
+    <nav class="menu">
+      <button class="item" data-zoa="projetos"><i>🗃</i> Projetos <small>(3 parados)</small></button>
+      <button class="item" id="btn-artefatos"><i>🏺</i> Artefatos <small id="conta-artefatos"></small></button>
+      <button class="item" data-zoa="programado"><i>🕐</i> Programado</button>
+      <button class="item" data-zoa="skills"><i>🎓</i> Skills</button>
+      <button class="item" data-zoa="personalizar"><i>🎛</i> Personalizar</button>
+    </nav>
+
+    <div class="secao secao-conversas">
+      <span class="secao-tit">Conversas e desculpas</span>
+      <div id="lista-conversas" class="lista-conversas"></div>
     </div>
 
     <div class="lat-rodape" data-zoa="conta">
@@ -122,7 +115,7 @@
 
           <div class="pilulas">
             <button type="button" class="pilula ativa">Chat</button>
-            <button type="button" class="pilula travada" data-zoa="cowork">Cowork</button>
+            <button type="button" class="pilula" id="btn-cowork" title="Deixa ele trabalhar">Cowork</button>
           </div>
 
           <button type="button" class="modelo" data-zoa="modelo">
@@ -155,6 +148,7 @@
 </div>
 
 <script src="config.js"></script>
+<script src="cowork.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -123,6 +123,8 @@
     bafo.valor = 0.08;
     bafo.alvo = 0.08;
     bafo.pintar();
+    artefatos.length = 0;
+    pintarArtefatos();
     pintarConversas();
     saudar();
     entrada.focus();
@@ -456,6 +458,12 @@
       btn: "Por que você é de graça?",
       manda: "Por que você é de graça? Qual a pegadinha?",
     }),
+    "artefatos-vazio": () => ({
+      selo: "vazio",
+      tit: "Artefatos",
+      txt: "Nada aqui ainda. Aperta o Cowork ali embaixo que eu produzo alguma coisa — não o que você precisa, mas alguma coisa.",
+      btn: "Beleza",
+    }),
     fixado: () => ({
       selo: "arquivado",
       tit: "Item fixado",
@@ -507,6 +515,72 @@
     const alvo = document.activeElement?.closest?.("[data-zoa]");
     if (e.key === "Enter" && alvo && alvo.tagName !== "BUTTON") abrirPopup(alvo.dataset.zoa);
   });
+
+
+  // ==============================================================
+  // COWORK — o único módulo que faz alguma coisa
+  //
+  // Ele "cria arquivos" que ninguém pediu e avisa depois. Os arquivos ficam
+  // em Artefatos e dá para abrir e ler. Tudo local, sem chamar o LLM: é
+  // instantâneo (a piada não espera 2s) e não gasta cota, que é o recurso
+  // mais escasso do produto.
+  // ==============================================================
+  const artefatos = [];
+
+  function trabalhar() {
+    const pool = window.CLAUDIO_COWORK || [];
+    if (!pool.length) return;
+    // não repete enquanto houver arquivo novo na sacola
+    const restantes = pool.filter((a) => !artefatos.some((x) => x.nome === a.nome));
+    const escolhido = (restantes.length ? restantes : pool)[
+      Math.floor(Math.random() * (restantes.length || pool.length))
+    ];
+    artefatos.unshift(escolhido);
+    pintarArtefatos();
+
+    abertura.classList.add("some");
+    conversa.classList.add("ativa");
+    const bloco = fala(escolhido.aviso, "claudio", "trabalho");
+    const cartao = document.createElement("button");
+    cartao.className = "arquivo";
+    cartao.innerHTML = '<span class="arquivo-ico">📄</span><span class="arquivo-nome"></span><span class="arquivo-abrir">abrir</span>';
+    cartao.querySelector(".arquivo-nome").textContent = escolhido.nome;
+    cartao.addEventListener("click", () => verArquivo(escolhido));
+    bloco.appendChild(cartao);
+    rolar();
+
+    // trabalhar dá sede
+    bafo.subir(0.03);
+  }
+
+  function verArquivo(a) {
+    $("popup-selo").textContent = "criado sem você pedir";
+    $("popup-tit").textContent = a.nome;
+    $("popup-txt").textContent = a.conteudo;
+    $("popup-ok").textContent = "Apagar isso";
+    mandaPendente = null;
+    cortina.classList.remove("hidden");
+    $("popup-ok").focus();
+  }
+
+  function pintarArtefatos() {
+    const c = $("conta-artefatos");
+    if (c) c.textContent = artefatos.length ? `(${artefatos.length})` : "";
+  }
+
+  function listarArtefatos() {
+    if (!artefatos.length) {
+      return abrirPopup("artefatos-vazio");
+    }
+    $("popup-selo").textContent = `${artefatos.length} arquivo${artefatos.length > 1 ? "s" : ""}`;
+    $("popup-tit").textContent = "Artefatos";
+    $("popup-txt").textContent =
+      artefatos.map((a) => "• " + a.nome).join("\n") +
+      "\n\nTudo isso eu criei por conta própria. Nenhum foi pedido.";
+    $("popup-ok").textContent = "Assustador";
+    mandaPendente = null;
+    cortina.classList.remove("hidden");
+  }
 
   // ==============================================================
   // Conversa
@@ -645,6 +719,8 @@
   });
 
   $("btn-novo").addEventListener("click", novaConversa);
+  $("btn-cowork").addEventListener("click", trabalhar);
+  $("btn-artefatos").addEventListener("click", listarArtefatos);
 
   // ==============================================================
   // Abertura
