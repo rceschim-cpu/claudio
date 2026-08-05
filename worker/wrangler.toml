@@ -19,7 +19,11 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 # Orçamento — abaixo do teto do free tier da Groq (30 rpm / 1.000 dia / 12k tpm).
 CLAUDIO_MAX_TOKENS = "220"
-CLAUDIO_DAILY_BUDGET = "850"
+# O gargalo REAL do free tier não é requisição por dia (1.000), é TOKEN por
+# dia (~100k por modelo). Com ~1.400 tokens de prompt por chamada, cada modelo
+# aguenta ~70 mensagens/dia. Com os 5 da corrente, ~350. O 850 daqui era
+# ficção: o produto morria de 429 muito antes de chegar perto.
+CLAUDIO_DAILY_BUDGET = "320"
 CLAUDIO_RPM_BUDGET = "24"
 CLAUDIO_TPM_BUDGET = "10000"
 CLAUDIO_IP_PER_MIN = "4"

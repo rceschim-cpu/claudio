@@ -182,13 +182,17 @@ async function main() {
 }
 
 // -----------------------------------------------------------------
-function montarMarkdown({ linhas, modelos, casos, segundos }) {
+function montarMarkdown({ linhas, modelos, casos, segundos, abortou }) {
   const out = [];
   const dia = new Date().toISOString().slice(0, 10);
 
   out.push(`# Bancada de humor do Claudio`);
   out.push("");
-  out.push(`Rodada de ${dia} · ${casos.length} prompts · ${segundos}s`);
+  out.push(`Rodada de ${dia} · ${linhas.length} de ${casos.length} prompts · ${segundos}s`);
+  if (abortou) {
+    out.push("");
+    out.push(`> **Rodada incompleta.** A cota diária de tokens acabou no prompt ${abortou}. O que está aqui é válido; o resto não chegou a rodar.`);
+  }
   out.push("");
   out.push(`Modelos: ${modelos.map((m) => "`" + m + "`").join(" · ")}`);
   out.push("");
