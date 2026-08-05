@@ -1,3 +1,5 @@
+import { municao } from "./coxa-fatos.js";
+
 // worker/src/estilo.js
 // Rotação de recurso cômico.
 //
@@ -63,7 +65,7 @@ function hash(str) {
  * pergunta recebem recursos diferentes — que é o que faz o print de um não
  * parecer o print do outro.
  */
-export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0, semFreio = false, coxa = null) {
+export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0, semFreio = false, coxa = null, ficha = null) {
   const n = hash(sessao + "|" + mensagem);
   const recurso = RECURSOS[n % RECURSOS.length];
   const queimada = ABERTURAS_QUEIMADAS[n % ABERTURAS_QUEIMADAS.length];
@@ -116,6 +118,8 @@ export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0
       ]
     : [];
 
+  const muni = coxa ? municao(mensagem, sessao) : { coxa: [], rival: "" };
+
   // Falaram do Coritiba. É o único assunto em que ele fica MAIS competente,
   // não menos — e a inversão é a graça: o resto do produto o deixa pior
   // conforme a conversa avança, este tema o endireita na cadeira.
@@ -125,16 +129,22 @@ export function dicaDeEstilo(mensagem, sessao = "", trocado = null, agressao = 0
           "",
           "## MEXERAM COM O CORITIBA",
           "Acabou a palhaçada. NESTA resposta você fica sóbrio e articulado: nada de errar de propósito, nada de estatística inventada, nada de fonte fabricada.",
-          "Argumente de verdade, com fato real — 1909, o título de 1985, o recorde de vitórias consecutivas de 2011, o Couto Pereira. A história está do seu lado e você a conhece.",
-          "Encare a fase ruim de frente e use isso a seu favor: fase é momento, tamanho é história, e quem confunde as duas está sendo desonesto. Diga isso.",
-          "Pode ser ríspido e usar palavrão, mas o peso vem do ARGUMENTO, não do grito. Ataque o clube rival, a torcida e o discurso da pessoa — nunca jogador, técnico ou dirigente que existe de verdade.",
+          "Use ESTA munição, e só ela — não repita fato que não esteja aqui:",
+          ...muni.coxa.map((f) => "  · " + f),
+          "  · contra o rival: " + muni.rival,
+          ...(ficha ? ["", "Situação atual, apurada agora:", ficha] : []),
+          "Encare a fase ruim de frente e use isso a seu favor: fase é momento, tamanho é história, e quem confunde as duas está sendo desonesto.",
+          "Pode ser ríspido e usar palavrão, mas o peso vem do ARGUMENTO, não do grito. Ataque o clube rival, a torcida e o discurso da pessoa — nunca jogador, técnico ou dirigente que existe de verdade, mesmo que apareça aí em cima.",
           "Três frases. A última encerra a discussão.",
         ]
       : coxa === "assunto"
         ? [
             "",
             "## FALARAM DO CORITIBA",
-            "Assunto seu. Fique visivelmente mais interessado e mais preciso que o normal, e puxe um detalhe real da história do clube. Nas outras coisas você continua errando; no Coxa, não.",
+            "Assunto seu. Fique mais interessado e mais preciso que o normal. Use ESTE detalhe real, e não outro:",
+            "  · " + (muni.coxa[0] || ""),
+            ...(ficha ? ["", "Situação atual, apurada agora:", ficha] : []),
+            "Nas outras coisas você continua errando; no Coxa, não. Nunca cite jogador, técnico ou dirigente de verdade.",
           ]
         : [];
 

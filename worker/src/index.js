@@ -16,6 +16,7 @@ import { moderate } from "./moderation.js";
 import { getLedger, anonHash, dayKey } from "./ledger.js";
 import { blockReply, quotaReply, offlineReply, brokenReply, GREETINGS } from "./replies.js";
 import { dicaDeEstilo } from "./estilo.js";
+import { precisaBuscar, buscarFicha } from "./pesquisa.js";
 
 export { Ledger } from "./ledger.js";
 
@@ -114,6 +115,21 @@ async function chat(request, env, ctx, cfg, cors) {
     );
   }
 
+  // ---- pesquisa ao vivo (raro, e só quando compensa) --------------
+  // Fato histórico não precisa de busca: está em coxa-fatos.js, custa zero
+  // e responde na hora. Busca só quando a pergunta é sobre AGORA — tabela,
+  // último jogo, fase atual — porque aí nenhum prompt estático resolve.
+  // Custa ~5.500 tokens e ~7s, então não é para ser o caminho comum.
+  let ficha = null;
+  if (precisaBuscar(message, coxa)) {
+    ficha = await buscarFicha({
+      assunto: "Coritiba",
+      chave: env.GROQ_API_KEY,
+      baseUrl: "https://api.groq.com/openai/v1",
+      signal: AbortSignal.timeout(9000),
+    });
+  }
+
   // ---- corrente de provedores -------------------------------------
   const result = await chamarCorrente({
     corrente: cfg.provider.corrente,
@@ -122,7 +138,7 @@ async function chat(request, env, ctx, cfg, cors) {
     // O recurso cômico da vez entra aqui, não no arquivo do prompt: o modelo
     // não lembra da resposta anterior, então quem garante a variedade é a
     // rotação de fora.
-    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado, agressao, semFreio, coxa),
+    system: CLAUDIO_PROMPT + dicaDeEstilo(message, sessionId, trocado, agressao, semFreio, coxa, ficha),
     messages: [...trimmed, { role: "user", content: message }],
     // 20s: o grok-4.5 leva 26s e por isso ficou fora da corrente. Esperar
     // mais que isso num brinquedo de chat é pior que cair para o próximo.
@@ -157,6 +173,7 @@ async function chat(request, env, ctx, cfg, cors) {
       provedor: result.provedor,
       usedFallback: Boolean(result.usedFallback),
       tentativas: result.tentativas || 1,
+      pesquisou: Boolean(ficha),
     },
     200,
     cors

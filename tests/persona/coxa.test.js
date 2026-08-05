@@ -61,7 +61,16 @@ describe("modo Coxa no prompt", () => {
     assert.ok(d.includes("MEXERAM COM O CORITIBA"));
     assert.ok(/sóbrio e articulado/i.test(d), "tem que mandar ficar sóbrio");
     assert.ok(/nada de estat[íi]stica inventada/i.test(d), "no Coxa ele não inventa");
-    assert.ok(/1909|1985|2011/.test(d), "precisa dar os fatos reais de apoio");
+    assert.ok(/^  · /m.test(d), "precisa entregar munição concreta, não só mandar argumentar");
+  });
+
+  test("a munição rotaciona — duas sessões não recebem o mesmo fato", () => {
+    const vistos = new Set();
+    for (const s of ["a", "b", "c", "d", "e"]) {
+      const d = dicaDeEstilo("o coritiba é pequeno", s, null, 0.5, false, "ataque");
+      vistos.add((d.match(/^  · (?!contra).+$/m) || [])[0]);
+    }
+    assert.ok(vistos.size >= 3, `munição repetindo demais: ${vistos.size} variações em 5 sessões`);
   });
 
   test("mesmo bravo, não pode inventar sobre gente de verdade", () => {
